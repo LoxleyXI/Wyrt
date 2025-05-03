@@ -1,2 +1,4 @@
 node_modules
-server/config.js
+config/*
+!config/certs.md
+!config/default
