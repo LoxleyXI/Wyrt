@@ -30,17 +30,26 @@ const https   = require("https")
 const yaml    = require("js-yaml")
 
 // Systems
-const config  = require("./config/server.js")
-const cmd     = require("./server/commands")
-const loader  = require("./server/loader")
-/*
+const config  = require("./config/server")
 const util    = require("./server/util")
-*/
+const loader  = require("./server/loader")
+const cmd     = require("./server/commands")
 
 //----------------------------------
 // Data containers
 //----------------------------------
 const data = { users: {}, counter: 0 }
+
+data.states =
+{
+  game:      0,
+  menu:      1,
+  shop:      2,
+  battle:    3,
+  dialog:    4,
+  recipe:    5,
+  entry:     6,
+}
 
 //----------------------------------
 // Create command aliases
