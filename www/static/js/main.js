@@ -11,7 +11,15 @@ msg.onkeyup = function(event) {
     if (event.keyCode === 13 && msg.value !== "") {
         const val = msg.value
         msg.value = ""
-        ws.send(val + "\n")
+
+        if (val[0] == "/") {
+            const args = val.slice(1).split(" ")
+            ws.send(JSON.stringify({ type: "command", name: args[0], args: args.slice(1) }))
+        }
+        else {
+            ws.send(JSON.stringify({ type: "chat", msg: val }))
+        }
+
         cmd.unshift(val)
         depth = 0
     }
