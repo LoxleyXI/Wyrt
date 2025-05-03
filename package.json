@@ -1,0 +1,23 @@
+{
+  "name": "Wyrt",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node main.js",
+    "sass": "node sass.js"
+  },
+  "author": "Loxley Games",
+  "license": "ISC",
+  "description": "An MMO Engine",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "js-yaml": "^4.1.0",
+    "mysql": "^2.18.1",
+    "sha2": "^1.0.2",
+    "showdown": "^2.1.0",
+    "ws": "^8.18.0"
+  }
+}
