@@ -1,9 +1,13 @@
-.online {
+#connection-status {
     height: 16px;
     width: 16px;
-    background-color: #45ca45;
+    background-color: #ca4545;
     border-radius: 50%;
     display: inline-block;
+}
+
+#connection-status.connected {
+    background-color: #45ca45;
 }
 
 #log {

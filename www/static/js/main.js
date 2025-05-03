@@ -1,10 +1,12 @@
 import { config } from "./config.js"
 
-const ws    = new WebSocket(config.ws)
-const msg   = document.getElementById("msg")
-const log   = document.getElementById("log")
-const cmd   = []
-var   depth = 0
+const ws     = new WebSocket(config.ws)
+const msg    = document.getElementById("msg")
+const log    = document.getElementById("log")
+const status = document.getElementById("connection-status")
+const conn   = document.getElementById("connection")
+const cmd    = []
+var   depth  = 0
 
 msg.onkeyup = function(event) {
     // Enter
@@ -49,7 +51,17 @@ msg.onkeyup = function(event) {
     }
 }
 
-ws.onmessage = function(event) {
+ws.addEventListener("open", function(event) {
+    status.classList.add("connected")
+    conn.innerHTML = "Connected"
+})
+
+ws.addEventListener("close", function(event) {
+    status.classList.remove("connected")
+    conn.innerHTML = "Disconnected"
+})
+
+ws.addEventListener("message", function(event) {
     const li = document.createElement("li")
     var data = event.data
 
@@ -57,4 +69,4 @@ ws.onmessage = function(event) {
 
     log.appendChild(li)
     log.scrollTo(0, log.scrollHeight)
-}
+})
