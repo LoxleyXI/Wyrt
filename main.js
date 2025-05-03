@@ -32,9 +32,9 @@ const yaml    = require("js-yaml")
 // Systems
 const config  = require("./config/server.js")
 const cmd     = require("./server/commands")
+const loader  = require("./server/loader")
 /*
 const util    = require("./server/util")
-const loader  = require("./server/loader")
 */
 
 //----------------------------------
@@ -71,7 +71,7 @@ if (!config.server.options.nodb) {
 //----------------------------------
 // Load data
 //----------------------------------
-// loader(data)
+loader(data)
 
 //----------------------------------
 // User constructor

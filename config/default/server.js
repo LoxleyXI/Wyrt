@@ -18,8 +18,9 @@ exports.server = {
     },
 
     options: {
-        dev:  true,
-        web:  true,
-        nodb: false,
+        dev:     true,
+        web:     true,
+        nodb:    false,
+        example: true,
     },
 }

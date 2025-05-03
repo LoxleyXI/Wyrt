@@ -1,0 +1,107 @@
+# Rocks
+Flint:
+  name: a piece of flint
+  desc: A sharp natural glass.
+  icon: 227
+  value: 2
+
+Small_Rock:
+  name: a small rock
+  desc: A small sized rock.
+  icon: 238
+  value: 4
+
+Medium_Rock:
+  name: a medium rock
+  desc: A medium sized rock.
+  icon: 239
+  value: 8
+
+Large_Rock:
+  name: a large rock
+  desc: A large sized rock.
+  icon: 240
+  value: 12
+
+# Bronze
+Copper_Ore:
+  name: a chunk of copper ore
+  desc: A hard mineral containing copper.
+  icon: 228
+  value: 6
+
+Copper_Ingot:
+  name: a copper ingot
+  desc: A smelted bar of copper.
+  icon: 569
+  value: 8
+
+Tin_Ore:
+  name: a chunk of tin ore
+  desc: A hard mineral containing tin.
+  icon: 229
+  value: 9
+
+Bronze_Ingot:
+  name: a bronze ingot
+  desc: A smelted bar of bronze.
+  icon: 570
+  value: 12
+
+# Iron
+Iron_Ore:
+  name: a chunk of iron ore
+  desc: A hard mineral containing iron.
+  icon: 230
+  value: 15
+
+Iron_Ingot:
+  name: an iron ingot
+  desc: A smelted bar of iron.
+  icon: 572
+  value: 18
+
+Steel_Ingot:
+  name: a steel ingot
+  desc: A smelted bar of steel.
+  icon: 571
+  value: 22
+
+# Silver
+Silver_Ore:
+  name: a chunk of silver ore
+  desc: A rare mineral containing silver.
+  icon: 231
+  value: 24
+
+Silver_Ingot:
+  name: a silver ingot
+  desc: A smelted bar of silver.
+  icon: 575
+  value: 30
+
+# Gold
+Gold_Ore:
+  name: a chunk of gold ore
+  desc: A rare mineral containing gold.
+  icon: 232
+  value: 35
+
+Gold_Ingot:
+  name: a gold ingot
+  desc: A smelted bar of gold.
+  icon: 574
+  value: 40
+
+# Platinum
+Platinum_Ore:
+  name: a chunk of platinum ore
+  desc: A rare mineral containing platinum.
+  icon: 233
+  value: 60
+
+Platinum_Ingot:
+  name: a platinum ingot
+  desc: A smelted bar of platinum.
+  icon: 573
+  value: 75
