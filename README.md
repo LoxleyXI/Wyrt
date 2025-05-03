@@ -1,3 +1,5 @@
+[![Wyrt](https://github.com/LoxleyXI/Wyrt/blob/main/Wyrt.png)](https://github.com/LoxleyXI/Wyrt)
+
 Wyrt - An MMO Engine
 ==
 Wyrt is a server for creating scalable live service games. It dynamically reloads live content, handles player connections, commands, battles, skills, quests and much more.
