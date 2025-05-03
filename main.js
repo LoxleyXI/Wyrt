@@ -31,10 +31,10 @@ const yaml    = require("js-yaml")
 
 // Systems
 const config  = require("./config/server.js")
+const cmd     = require("./server/commands")
 /*
 const util    = require("./server/util")
 const loader  = require("./server/loader")
-const cmd     = require("./server/commands")
 */
 
 //----------------------------------
@@ -45,7 +45,6 @@ const data = { users: {}, counter: 0 }
 //----------------------------------
 // Create command aliases
 //----------------------------------
-/*
 for (var func in cmd) {
     if (
         cmd[func].alias &&
@@ -56,7 +55,6 @@ for (var func in cmd) {
         }
     }
 }
-*/
 
 //----------------------------------
 // Database connection
@@ -125,15 +123,15 @@ function onReceived(u, input, log, reg) {
 
         // TODO: Process movement
 
-        if (result.command) {
-            const command = cmd[result.command.name]
-            const args    = result.command.args
+        if (result.type == "command") {
+            const command = cmd[result.name]
+            const args    = result.args
 
             if (!config.server.options.dev && command.gmlv && u.player.gmlv < command.gmlv) {
-                console.log(`[Player] ${u.player.name} does not have sufficient GM Level to use '${result.command.name}'.`)
+                console.log(`[Player] ${u.player.name} does not have sufficient GM Level to use '${result.name}'.`)
             }
             else {
-                command.exec(u, data, result.command.args)
+                command.exec(u, data, result.args)
             }
         }
     }
@@ -156,11 +154,11 @@ function onConnection(wss) {
         // account.showMainMenu(u.socket)
         u.system("connection")
 
-        ws.on("data", function(received) {
-            onReceived(u, input, log, reg)
+        ws.on("message", function(received) {
+            onReceived(u, received, log, reg)
         })
 
-        ws.on("end", function() {
+        ws.on("close", function() {
             console.log("- connection: ")
             // TODO: Remove player from area
             delete data.users[u.id]
