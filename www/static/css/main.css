@@ -1,0 +1,24 @@
+.online {
+    height: 16px;
+    width: 16px;
+    background-color: #45ca45;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+#log {
+    height: 256px;
+    width: 512px;
+    padding: 8px;
+    background-color: #cacaca;
+    border: 4px solid #acacac;
+    border-radius: 8px;
+    list-style: none;
+}
+
+#msg {
+    width: 512px;
+    padding: 8px;
+    border: 4px solid #acacac;
+    border-radius: 8px;
+}

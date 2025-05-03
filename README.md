@@ -1,4 +1,4 @@
-[![Wyrt](https://github.com/LoxleyXI/Wyrt/blob/main/Wyrt.png)](https://github.com/LoxleyXI/Wyrt)
+[![Wyrt](https://github.com/LoxleyXI/Wyrt/blob/main/www/static/img/Wyrt.png)](https://github.com/LoxleyXI/Wyrt)
 
 Wyrt - An MMO Engine
 ==
