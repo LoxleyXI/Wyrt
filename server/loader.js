@@ -47,7 +47,6 @@ function basicLoader(obj, path, dataType) {
 
 const loaders = {
     items: function(obj, path) {
-        obj.items = {}
         return basicLoader(obj, path, "items")
     },
 }
