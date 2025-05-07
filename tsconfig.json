@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "noImplicitAny": false,
+        "noEmitOnError": true,
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "removeComments": false,
+        "sourceMap": true,
+        "target": "es5",
+        "outDir": "dist"
+    },
+    "include": [
+        "src/**/*"
+    ]
+}
