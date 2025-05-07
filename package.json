@@ -1,10 +1,12 @@
 {
-  "name": "Wyrt",
+  "name": "wyrt",
   "version": "1.0.0",
   "main": "main.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node main.js",
+    "ts": "tsx watch src",
     "sass": "node sass.js"
   },
   "author": "Loxley Games",
@@ -18,6 +20,15 @@
     "mysql": "^2.18.1",
     "sha2": "^1.0.2",
     "showdown": "^2.1.0",
+    "typescript": "^5.8.3",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/mysql": "^2.15.27",
+    "@types/node": "^22.15.14",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.4"
   }
 }
