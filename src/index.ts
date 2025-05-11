@@ -99,6 +99,12 @@ function onConnection(wss: WebSocketServer) {
         u.system("connection");
 
         ws.on("message", function(received: string) {
+            /*
+            if (msg.length < config.options.ratePoolSize) {
+                u.msg.push(received)
+            }
+            */
+
             onReceived(u, received)
         });
 
