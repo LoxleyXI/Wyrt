@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node main.js",
-    "ts": "tsx watch src",
+    "start": "tsx watch src",
+    "www": "npm --prefix www run dev",
     "sass": "node sass.js"
   },
   "author": "Loxley Games",
@@ -17,7 +17,7 @@
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "js-yaml": "^4.1.0",
-    "mysql": "^2.18.1",
+    "postgres": "^3.4.5",
     "sha2": "^1.0.2",
     "showdown": "^2.1.0",
     "typescript": "^5.8.3",

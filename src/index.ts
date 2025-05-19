@@ -19,8 +19,7 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
 // Third-party
-import express from "express";
-import mysql from "mysql";
+import postgres from "postgres";
 import net from "net";
 import { WebSocketServer } from "ws";
 import fs from "fs";
@@ -47,14 +46,14 @@ const commands: Commands = new Commands();
 //----------------------------------
 // Database connection
 //----------------------------------
-if (!config.server.options.nodb) {
-    const connection = mysql.createConnection(config.server.db);
-
-    if (!config.server.nodb) {
-        connection.connect();
-        console.log(`=== Database connected ===`);
-    }
-}
+// if (!config.server.options.nodb) {
+//     const connection = mysql.createConnection(config.server.db);
+// 
+//     if (!config.server.nodb) {
+//         connection.connect();
+//         console.log(`=== Database connected ===`);
+//     }
+// }
 
 //----------------------------------
 // Load data
@@ -134,26 +133,3 @@ else {
 }
 
 console.log(`=== WebSocket Server :${config.server.ports.socket} ===`);
-
-//----------------------------------
-// Web Server
-//----------------------------------
-if (config.server.options.web) {
-    const app  = express();
-    const port = config.server.ports.web;
-
-    app.set("view engine", "ejs");
-    app.set("views", "./www/views");
-
-    var jsonParser = express.json();
-
-    app.get("/", (req, res) => {
-      res.render("index");
-    });
-
-    app.use("/static", express.static("www/static"));
-
-    app.listen(port, () => {
-      console.log(`=== Web Server :${config.server.ports.web} ===`);
-    });
-}
