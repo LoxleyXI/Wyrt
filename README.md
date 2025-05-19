@@ -18,6 +18,14 @@ Features
 * Combat - By default, Wyrt features a turn-based combat system but its behaviour can also be overridden
 * Abilities - Combat abilities can be assigned to players and mobs, with handling for cooldowns and additional effects
 
+Setup
+===
+* Copy `config/default/server.json` to `config/server.json` and update the details
+* For https, add any required certificates to `config/`
+* Add your game data to `data/` or copy `data/example` into `data/`
+* Launch the game server using `npm start`
+* (Optional) launch the web client `npm run www`
+
 Data
 ===
 
