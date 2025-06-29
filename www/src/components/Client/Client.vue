@@ -59,10 +59,22 @@ function sendCommand(_event: Event) {
 
     if (command.value[0] == "/") {
         const args = command.value.slice(1).split(" ")
-        ws.send(JSON.stringify({ type: "command", name: args[0], args: args.slice(1) }))
+
+        if (args[0] == "login") {
+            ws.send(JSON.stringify({ type: "login", "username": args[1] || "user", "password": args[2] || "pass"}))
+        }
+        else if (args[0] == "register") {
+            ws.send(JSON.stringify({ type: "register", "username": args[1] || "user", "password": args[2] || "pass"}))
+        }
+        else if (args[0] == "move") {
+            ws.send(JSON.stringify({ type: "move", "x": args[1] || "0", "y": args[2] || "0", "z": args[2] || "0"}))
+        }
+        else {
+            ws.send(JSON.stringify({ type: "command", name: args[0], args: args.slice(1) }))
+        }
     }
     else {
-        ws.send(JSON.stringify({ type: "chat", msg: command.value }))
+        ws.send(JSON.stringify({ type: "chat", message: command.value }))
     }
 
     command.value = ""

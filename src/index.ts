@@ -31,6 +31,10 @@ import mysql from "mysql";
 import { Data } from "./types/Data";
 import { User } from "./types/User";
 
+import { RateLimiter } from "./request/RateLimiter";
+import { RequestTypes } from "./request/Request";
+import { AuthManager } from "./request/AuthManager";
+
 // Systems
 import server from "../config/server.json";
 import { Loader } from "./server/Loader";
@@ -43,13 +47,29 @@ import { Connection } from "mysql";
 const config: any = { server: server }
 const data: Data = new Data();
 const commands: Commands = new Commands();
-let connection: Connection = mysql.createConnection(config.server.db);
+
+//----------------------------------
+// Authentication and rate limiting
+//----------------------------------
+const rateLimiter = new RateLimiter(
+    config.server.rateLimiting?.bucketCapacity || 100,
+    config.server.rateLimiting?.refillRate || 10
+);
+
+const authManager = new AuthManager(
+    process.env.JWT_SECRET || config.server.auth?.jwtSecret || "secret",
+    config.server.auth?.jwtExpiration || "24h"
+);
+
+const requestTypes = new RequestTypes(authManager, commands, config);
 
 //----------------------------------
 // Database connection
 //----------------------------------
+let connection: Connection;
+
  if (!config.server.options.nodb) {
-     const connection = mysql.createConnection(config.server.db);
+     connection = mysql.createConnection(config.server.db);
 
      if (!config.server.nodb) {
          connection.connect();
@@ -63,56 +83,98 @@ let connection: Connection = mysql.createConnection(config.server.db);
 Loader.init(data);
 
 //----------------------------------
-// User inbound
+// Request handler
 //----------------------------------
 function onReceived(u: User, input: string) {
-    // TODO: Check player state
-    // TODO: Check player HP
-
     try {
-        const result = JSON.parse(input);
+        const request = JSON.parse(input);
 
-        // TODO: Process movement
-
-        if (result.type === "command") {
-            const command = commands.cmd[result.name];
-
-            if (!config.server.options.dev && command.gmlv && u.player.gmlv < command.gmlv) {
-                console.log(`[Player] ${u.player.name} does not have sufficient GM Level to use '${result.name}'.`);
-            } else {
-                command.exec(u, data, result.args);
-            }
+        if (!request.type || typeof request.type !== "string" || !requestTypes.handlers[request.type]) {
+            u.error("Invalid request: missing, invalid or unknown type");
+            return;
         }
+
+        const handler = requestTypes.handlers[request.type];
+
+        const userId = u.player.authenticated ? u.player.charid?.toString() : u.id.toString();
+
+        if (!rateLimiter.checkLimit(userId, handler.cost)) {
+            u.error("Rate limit exceeded.");
+            console.log(`[RateLimit] User ${userId} exceeded rate limit for ${request.type}`);
+            return;
+        }
+
+        // Check authentication requirement
+        if (handler.auth && !u.isAuthenticated()) {
+            u.error("Authentication required");
+            return;
+        }
+
+        // Log request (in dev mode)
+        if (config.server.options.dev) {
+            console.log(`[Request] ${userId} -> ${request.type} (cost: ${handler.cost})`);
+        }
+
+        // Execute handler
+        Promise.resolve(handler.exec(u, data, request, connection))
+            .catch(error => {
+                console.error(`[Handler Error] ${type}:`, error);
+                u.error("Request processing failed");
+            });
+
     } catch (exception) {
-        console.log(`[Player] Client sent invalid response.`);
-        console.log(exception);
+        console.log(`[Player] Client sent invalid request:`, exception);
+        u.error("Invalid request format");
     }
 }
 
+//----------------------------------
+// Connection handler
+//----------------------------------
 function onConnection(wss: WebSocketServer) {
-    wss.on("connection", (ws: WebSocketServer) => {
+    wss.on("connection", (ws: any, req: any) => {
         data.counter++;
         const u = new User(ws, data.counter);
         data.users[u.id] = u;
 
-        // TODO: Trigger first action
-        // account.showMainMenu(u.socket)
-        u.system("connection");
+        const clientIP = req.socket.remoteAddress || req.headers["x-forwarded-for"] || "unknown";
+        u.clientIP = clientIP;
 
-        ws.on("message", function(received: string) {
-            /*
-            if (msg.length < config.options.ratePoolSize) {
-                u.msg.push(received)
+        console.log(`+ connection from ${clientIP} (ID: ${u.id})`);
+
+        u.system(JSON.stringify({
+            type: "initial",
+            server: config.server.info.name || "wyrt",
+            version: config.server.info.version || "1.0.0",
+            timestamp: Date.now()
+        }));
+
+        ws.on("message", function(received: Buffer) {
+            const message = received.toString();
+
+            // Basic message size validation
+            if (message.length > 10000) { // 10KB limit
+                u.error("Message too large");
+                return;
             }
-            */
 
-            onReceived(u, received)
+            onReceived(u, message);
         });
 
         ws.on("close", function() {
-            console.log("- connection: ");
-            // TODO: Remove player from area
+            console.log(`- connection: ${clientIP} (ID: ${u.id})`);
+            
+            // Remove player from area if they were in game
+            if (u.player.authenticated) {
+                // TODO: Handle player logout in game world
+                console.log(`Player ${u.player.name} disconnected`);
+            }
+
             delete data.users[u.id];
+        });
+
+        ws.on("error", function(error: Error) {
+            console.error(`WebSocket error for user ${u.id}:`, error);
         });
     });
 }
@@ -120,21 +182,25 @@ function onConnection(wss: WebSocketServer) {
 //----------------------------------
 // WebSocket Server
 //----------------------------------
-if (config.server.options.dev) {
-    const wss = new WebSocketServer({ port: config.server.ports.socket });
-    onConnection(wss);
-}
-else {
-    const serverHttps = https.createServer({
-        cert: fs.readFileSync(`./config/${config.server.certificates.cert}`),
-        key:  fs.readFileSync(`./config/${config.server.certificates.key}`),
-    }).listen(config.server.ports.socket);
+try {
+    if (config.server.options.dev) {
+        const wss = new WebSocketServer({ port: config.server.ports.socket });
+        onConnection(wss);
+        console.log(`=== WebSocket Server (DEV) :${config.server.ports.socket} ===`);
+    } else {
+        const serverHttps = https.createServer({
+            cert: fs.readFileSync(`./config/${config.server.certificates.cert}`),
+            key: fs.readFileSync(`./config/${config.server.certificates.key}`),
+        }).listen(config.server.ports.socket);
 
-    const wss = new WebSocketServer({ server: serverHttps });
-    onConnection(wss);
+        const wss = new WebSocketServer({ server: serverHttps }); onConnection
+        (wss); console.log(`=== WebSocket Server (HTTPS) :$
+        {config.server.ports.socket} ===`); 
+    }
 }
-
-console.log(`=== WebSocket Server :${config.server.ports.socket} ===`);
+catch (error) { console.error
+    ("Failed to start WebSocket server:", error); process.exit(1);
+}
 
 //----------------------------------
 // Close connections on shut down
