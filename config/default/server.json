@@ -1,4 +1,9 @@
 {
+    "info": {
+        "name": "wyrt",
+        "version": "1.0.0"
+    },
+
    "db": {
         "host":     "localhost",
         "user":     "root",
@@ -21,6 +26,19 @@
         "web":          true,
         "nodb":         false,
         "example":      true,
-        "ratePoolSize": 30
+        "ratePoolSize": 30,
+        "allowRegistration": true
+    },
+
+    "auth": {
+        "jwtSecret": "secret",
+        "jwtExpiration": "24h",
+        "saltRounds": 12
+    },
+
+    "rateLimiting": {
+        "bucketCapacity": 100,
+        "refillRate": 10,
+        "cleanupInterval": 300000
     }
 }
