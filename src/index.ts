@@ -19,13 +19,13 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
 // Third-party
-import postgres from "postgres";
 import net from "net";
 import { WebSocketServer } from "ws";
 import fs from "fs";
 import SHA2 from "sha2";
 import https from "https";
 import yaml from "js-yaml";
+import mysql from "mysql";
 
 // Types
 import { Data } from "./types/Data";
@@ -35,6 +35,7 @@ import { User } from "./types/User";
 import server from "../config/server.json";
 import { Loader } from "./server/Loader";
 import { Commands } from "./server/Commands";
+import { Connection } from "mysql";
 
 //----------------------------------
 // Data containers
@@ -42,18 +43,19 @@ import { Commands } from "./server/Commands";
 const config: any = { server: server }
 const data: Data = new Data();
 const commands: Commands = new Commands();
+let connection: Connection = mysql.createConnection(config.server.db);
 
 //----------------------------------
 // Database connection
 //----------------------------------
-// if (!config.server.options.nodb) {
-//     const connection = mysql.createConnection(config.server.db);
-// 
-//     if (!config.server.nodb) {
-//         connection.connect();
-//         console.log(`=== Database connected ===`);
-//     }
-// }
+ if (!config.server.options.nodb) {
+     const connection = mysql.createConnection(config.server.db);
+
+     if (!config.server.nodb) {
+         connection.connect();
+         console.log(`=== Database connected ===`);
+     }
+ }
 
 //----------------------------------
 // Load data
@@ -133,3 +135,19 @@ else {
 }
 
 console.log(`=== WebSocket Server :${config.server.ports.socket} ===`);
+
+//----------------------------------
+// Close connections on shut down
+//----------------------------------
+function serverClose() {
+    console.log(`\n=== Server shutdown down ===`);
+
+    if (connection) {
+        connection.end();
+    }
+
+    process.exit(0);
+}
+
+process.on("SIGINT", serverClose);
+process.on("SIGTERM", serverClose);
