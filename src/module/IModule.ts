@@ -18,12 +18,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
-export enum GameState {
-    Game,
-    Menu,
-    Shop,
-    Battle,
-    Dialog,
-    Recipe,
-    Entry,
-};
+import { ModuleContext } from "./ModuleContext";
+
+// Base module interface
+export interface IModule {
+    name: string;
+    version: string;
+    description?: string;
+    dependencies?: string[];
+
+    // Lifecycle methods
+    initialize?(context: ModuleContext): Promise<void> | void;
+    activate?(context: ModuleContext): Promise<void> | void;
+    deactivate?(context: ModuleContext): Promise<void> | void;
+}

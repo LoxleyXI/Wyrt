@@ -2,5 +2,6 @@ node_modules
 config/*
 !config/certs.md
 !config/default
-data/*
-!data/example
+modules/*
+!modules/wyrt_core
+!modules/wyrt_items

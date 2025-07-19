@@ -40,5 +40,9 @@
         "bucketCapacity": 100,
         "refillRate": 10,
         "cleanupInterval": 300000
+    },
+
+    "logging": {
+        "level": "info"
     }
 }

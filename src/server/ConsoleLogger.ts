@@ -18,12 +18,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
-export enum GameState {
-    Game,
-    Menu,
-    Shop,
-    Battle,
-    Dialog,
-    Recipe,
-    Entry,
-};
+export interface Logger {
+    debug(message: string, ...args: any[]): void;
+    info(message: string, ...args: any[]): void;
+    warn(message: string, ...args: any[]): void;
+    error(message: string, ...args: any[]): void;
+}
+
+export class ConsoleLogger implements Logger {
+    debug(message: string, ...args: any[]): void {
+        console.log(`[DEBUG] ${message}`, ...args);
+    }
+
+    info(message: string, ...args: any[]): void {
+        console.log(`[INFO] ${message}`, ...args);
+    }
+
+    warn(message: string, ...args: any[]): void {
+        console.warn(`[WARN] ${message}`, ...args);
+    }
+
+    error(message: string, ...args: any[]): void {
+        console.error(`[ERROR] ${message}`, ...args);
+    }
+}

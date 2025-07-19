@@ -18,12 +18,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
-export enum GameState {
-    Game,
-    Menu,
-    Shop,
-    Battle,
-    Dialog,
-    Recipe,
-    Entry,
-};
+import { Connection } from "mysql";
+import { EventEmitter } from "events";
+import { Data } from "../types/Data";
+import { ModuleCommands } from "./ModuleCommands";
+import { ModuleRequestTypes } from "./ModuleRequestTypes";
+import { AuthManager } from "../server/AuthManager";
+import { RateLimiter } from "../server/RateLimiter";
+import { Logger } from "../server/ConsoleLogger";
+
+export interface ModuleContext {
+    connection: Connection;
+    data: Data;
+    commands: ModuleCommands;
+    requestTypes: ModuleRequestTypes;
+    authManager: AuthManager;
+    rateLimiter: RateLimiter;
+    config: any;
+    events: EventEmitter;
+    logger: Logger;
+}
