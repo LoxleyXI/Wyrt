@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "tsx watch src",
+    "demo": "npm --prefix demo run dev",
     "www": "npm --prefix www run dev",
     "sass": "node sass.js"
   },
