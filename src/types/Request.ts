@@ -18,12 +18,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
-export enum GameState {
-    Game,
-    Menu,
-    Shop,
-    Battle,
-    Dialog,
-    Recipe,
-    Entry,
-};
+export interface Request {
+    cost: number;
+    auth: boolean;
+    exec: (u: User, data: Data, payload: any, context: ModuleContext) => Promise<void> | void;
+}

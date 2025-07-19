@@ -18,12 +18,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
-export enum GameState {
-    Game,
-    Menu,
-    Shop,
-    Battle,
-    Dialog,
-    Recipe,
-    Entry,
-};
+import { Request } from "../types/Request";
+
+export class ModuleRequestTypes {
+    public handlers: Record<string, Request> = {};
+    private moduleHandlers: Map<string, Request> = new Map();
+
+    registerHandler(type: string, handler: Request): void {
+        this.moduleHandlers.set(type, handler);
+        this.handlers[type] = handler;
+    }
+
+    unregisterHandler(type: string): boolean {
+        if (this.moduleHandlers.has(type)) {
+            delete this.handlers[type];
+            this.moduleHandlers.delete(type);
+
+            return true;
+        }
+
+        return false;
+    }
+}
