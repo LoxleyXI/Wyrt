@@ -2,6 +2,11 @@ node_modules
 config/*
 !config/certs.md
 !config/default
+
+# Game website
+www
+
+# Include Wyrt but exclude game modules
 modules/*
 !modules/wyrt_core
 !modules/wyrt_items
