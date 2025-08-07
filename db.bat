@@ -128,6 +128,36 @@ for %%f in (SQL\*.sql) do (
     echo.
 )
 
+echo.
+echo Executing module SQL files...
+echo ================================
+
+if exist "modules" (
+    for /d %%m in (modules\*) do (
+        if exist "%%m\sql" (
+            echo.
+            echo Processing module: %%~nxm
+            for %%f in (%%m\sql\*.sql) do (
+                set /a total_count+=1
+                echo Processing: %%f
+                
+                mariadb -h !host! -P !port! -u !username! -p!password! !database! < "%%f"
+                
+                if !errorlevel! equ 0 (
+                    echo [SUCCESS] %%f executed successfully
+                    set /a success_count+=1
+                ) else (
+                    echo [ERROR] Failed to execute %%f
+                    set /a error_count+=1
+                )
+                echo.
+            )
+        )
+    )
+) else (
+    echo No modules directory found, skipping module SQL files.
+)
+
 echo ================================
 echo Execution Summary:
 echo Total files processed: !total_count!
