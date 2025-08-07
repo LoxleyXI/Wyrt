@@ -42,6 +42,8 @@ import { ModuleRequestTypes } from "./module/ModuleRequestTypes";
 import { ModuleData } from "./module/ModuleData";
 import { ModuleLoader } from "./module/ModuleLoader";
 import { ConsoleLogger } from "./server/ConsoleLogger";
+import { HttpServer } from "./server/HttpServer";
+import { WebManager } from "./server/WebManager";
 
 // Systems
 import server from "../config/server.json";
@@ -239,6 +241,14 @@ async function startServer() {
     try {
         // Initialize everything
         await initializeServer();
+
+        // Start HTTP server for authentication
+        const httpServer = new HttpServer(moduleContext, config.server.ports.web || 3001);
+        httpServer.start();
+
+        // Start module web applications
+        const webManager = new WebManager();
+        await webManager.start();
 
         // Start WebSocket server
         if (config.server.options.dev) {

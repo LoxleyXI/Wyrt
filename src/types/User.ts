@@ -72,4 +72,10 @@ export class User {
     hasPrivilege(level: number): boolean {
         return this.isAuthenticated() && this.player.gmlv >= level;
     }
+
+    send(msg: string): void {
+        if (this.socket.readyState === 1) { // WebSocket.OPEN
+            this.socket.send(msg);
+        }
+    }
 }

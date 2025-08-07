@@ -122,6 +122,18 @@ export class ModuleManager extends EventEmitter {
             .filter(dirent => dirent.isDirectory())
             .map(dirent => dirent.name);
 
+        // Sort modules so wyrt_ prefixed modules load first
+        moduleDirs.sort((a, b) => {
+            const aIsWyrt = a.startsWith('wyrt_');
+            const bIsWyrt = b.startsWith('wyrt_');
+            
+            if (aIsWyrt && !bIsWyrt) return -1;
+            if (!aIsWyrt && bIsWyrt) return 1;
+            return a.localeCompare(b);
+        });
+
+        this.logger.info(`Loading modules in order: ${moduleDirs.join(', ')}`);
+
         for (const dir of moduleDirs) {
             try {
                 await this.loadModule(path.join(moduleDir, dir));
