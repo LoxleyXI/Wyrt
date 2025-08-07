@@ -59,8 +59,6 @@ const handler: Request = {
                         gmlv: user.gmlv
                     }
                 }));
-
-                context.connection.end();
             });
         } catch (error) {
             console.error("Authentication error:", error);
