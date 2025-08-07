@@ -21,9 +21,11 @@ export class WebManager {
   private basePort: number = 3000;
   private maxPort: number = 3099;
   private processes: (ChildProcess | null)[] = [];
+  private config: any;
 
-  constructor(modulesPath?: string) {
+  constructor(modulesPath?: string, config?: any) {
     this.modulesDir = modulesPath || path.join(__dirname, '..', '..', 'modules');
+    this.config = config;
     this.setupShutdownHandlers();
   }
 
@@ -65,6 +67,11 @@ export class WebManager {
     let nextPort = this.basePort;
     
     for (const module of modules) {
+      if (module === 'wyrt_demo' && this.config?.server?.options?.demo === false) {
+        console.log('[WebManager] Skipping wyrt_demo module (demo disabled in config)');
+        continue;
+      }
+      
       const wwwPath = path.join(this.modulesDir, module, 'www');
       const packageJsonPath = path.join(wwwPath, 'package.json');
       

@@ -26,6 +26,7 @@
         "web":          true,
         "nodb":         false,
         "example":      true,
+        "demo":         true,
         "ratePoolSize": 30,
         "allowRegistration": true
     },

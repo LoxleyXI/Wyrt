@@ -247,7 +247,7 @@ async function startServer() {
         httpServer.start();
 
         // Start module web applications
-        const webManager = new WebManager();
+        const webManager = new WebManager(undefined, config);
         await webManager.start();
 
         // Start WebSocket server
