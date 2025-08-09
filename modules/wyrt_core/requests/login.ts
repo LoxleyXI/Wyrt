@@ -16,7 +16,7 @@ const handler: Request = {
         }
 
         try {
-            context.connection.query("SELECT charid, name, password, gmlv FROM chars WHERE name = ?", [username], async (error, results) => {
+            context.connection.query("SELECT charid, name, password, gmlv, zone FROM chars WHERE name = ?", [username], async (error, results) => {
                 if (error) {
                     console.error("Database error:", error);
                     u.error("Authentication failed");
@@ -47,6 +47,7 @@ const handler: Request = {
                     charid: user.charid,
                     name: user.name,
                     gmlv: user.gmlv,
+                    zone: user.zone,
                     authenticated: true
                 };
 
