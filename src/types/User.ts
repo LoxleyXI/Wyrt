@@ -24,7 +24,8 @@ import { MessageType } from "./MessageType";
 
 export class User {
     id: number;
-    player: any;
+    account: any;  // Account data (shared across games)
+    player: any;   // Character data (game-specific)
     socket: any;
     log: string[];
     state: GameState;
@@ -34,6 +35,7 @@ export class User {
 
     constructor(socket: any, id: number) {
         this.id = id;
+        this.account = { authenticated: false };
         this.player = { authenticated: false };
         this.socket = socket;
         this.log = [];
@@ -66,7 +68,7 @@ export class User {
     }
 
     isAuthenticated(): boolean {
-        return this.player.authenticated === true;
+        return this.account.authenticated === true;
     }
 
     hasPrivilege(level: number): boolean {

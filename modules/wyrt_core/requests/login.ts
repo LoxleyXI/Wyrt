@@ -16,7 +16,8 @@ const handler: Request = {
         }
 
         try {
-            context.connection.query("SELECT charid, name, password, gmlv, zone FROM chars WHERE name = ?", [username], async (error, results) => {
+            // First check account credentials
+            context.connection.query("SELECT id, username, password_hash, status FROM accounts WHERE username = ?", [username], async (error, results) => {
                 if (error) {
                     console.error("Database error:", error);
                     u.error("Authentication failed");
@@ -28,38 +29,59 @@ const handler: Request = {
                     return;
                 }
 
-                const user = results[0];
-                const isValidPassword = await context.authManager.comparePassword(password, user.password);
+                const account = results[0];
+                
+                // Check account status
+                if (account.status !== 'active') {
+                    u.error(`Account is ${account.status}`);
+                    return;
+                }
+
+                const isValidPassword = await context.authManager.comparePassword(password, account.password_hash);
 
                 if (!isValidPassword) {
-                    console.log("password")
                     u.error("Invalid credentials");
                     return;
                 }
 
+                // Generate auth token
                 const token = context.authManager.generateToken({
-                    userId: user.charid,
-                    username: user.name,
-                    gmlv: user.gmlv
+                    accountId: account.id,
+                    username: account.username
                 });
 
-                u.player = {
-                    charid: user.charid,
-                    name: user.name,
-                    gmlv: user.gmlv,
-                    zone: user.zone,
+                // Update last login
+                context.connection.query("UPDATE accounts SET last_login = NOW() WHERE id = ?", [account.id]);
+
+                // Create session
+                const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+                
+                context.connection.query(
+                    "INSERT INTO sessions (id, account_id, token, ip_address, expires_at) VALUES (?, ?, ?, ?, ?)",
+                    [sessionId, account.id, token, u.clientIP || 'unknown', expiresAt]
+                );
+
+                // Store account info in user object
+                u.account = {
+                    id: account.id,
+                    username: account.username,
                     authenticated: true
                 };
 
+                // Send success response
                 u.system(JSON.stringify({
                     type: "auth_success",
                     token: token,
-                    user: {
-                        id: user.charid,
-                        name: user.name,
-                        gmlv: user.gmlv
+                    sessionId: sessionId,
+                    account: {
+                        id: account.id,
+                        username: account.username
                     }
                 }));
+
+                // Emit authentication event
+                context.events.emit('accountAuthenticated', u);
             });
         } catch (error) {
             console.error("Authentication error:", error);
