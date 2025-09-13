@@ -132,9 +132,16 @@ function onReceived(u: User, input: string) {
     try {
         const request = JSON.parse(input);
 
-        if (!request.type || typeof request.type !== "string" || !requestTypes.handlers[request.type]) {
-            u.error("Invalid request: missing, invalid or unknown type");
-
+        if (!request.type || typeof request.type !== "string") {
+            u.error("Invalid request: missing or invalid type");
+            logger.warn(`Invalid request from user ${u.id}: ${JSON.stringify(request)}`);
+            return;
+        }
+        
+        if (!requestTypes.handlers[request.type]) {
+            u.error(`Unknown request type: ${request.type}`);
+            logger.warn(`Unknown request type '${request.type}' from user ${u.id}`);
+            logger.debug(`Available handlers: ${Object.keys(requestTypes.handlers).join(', ')}`);
             return;
         }
 

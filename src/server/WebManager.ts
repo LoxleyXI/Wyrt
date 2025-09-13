@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as net from 'net';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, execSync, ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -98,8 +98,35 @@ export class WebManager {
     return webApps;
   }
 
+  private installDependencies(webApp: ModuleWebApp): boolean {
+    const nodeModulesPath = path.join(webApp.path, 'node_modules');
+    if (!fs.existsSync(nodeModulesPath)) {
+      console.log(`[WebManager] Installing dependencies for ${webApp.name}...`);
+      const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      
+      try {
+        execSync(`${npm} install`, {
+          cwd: webApp.path,
+          stdio: 'inherit'
+        });
+        console.log(`[WebManager] Dependencies installed for ${webApp.name}`);
+        return true;
+      } catch (error: any) {
+        console.error(`[WebManager] Failed to install dependencies for ${webApp.name}:`, error.message);
+        return false;
+      }
+    }
+    return true;
+  }
+
   private startWebApp(webApp: ModuleWebApp): ChildProcess | null {
     console.log(`[WebManager] Starting web app for module: ${webApp.name} on port ${webApp.port}`);
+    
+    // Check and install dependencies if needed
+    if (!this.installDependencies(webApp)) {
+      console.error(`[WebManager] Cannot start ${webApp.name} without dependencies`);
+      return null;
+    }
     
     // For Next.js apps, we need to pass the port differently
     const env = { ...process.env, PORT: String(webApp.port) };

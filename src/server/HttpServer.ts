@@ -20,8 +20,23 @@ export class HttpServer {
     private setupMiddleware(): void {
         // Enable CORS for the frontend
         this.app.use(cors({
-            origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:4040'],
-            credentials: true
+            origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+                // Allow requests with no origin (like mobile apps or Postman)
+                if (!origin) return callback(null, true);
+                
+                // Allow any localhost origin
+                if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+                    return callback(null, true);
+                }
+                
+                // Block everything else
+                callback(new Error('Not allowed by CORS'));
+            },
+            credentials: true,
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization'],
+            preflightContinue: false,
+            optionsSuccessStatus: 200
         }));
 
         // Parse JSON bodies
@@ -71,8 +86,8 @@ export class HttpServer {
                     });
                 }
 
-                // Check if username exists in Wyrt's chars table
-                const checkUserQuery = "SELECT charid FROM chars WHERE name = ?";
+                // Check if username exists in accounts table
+                const checkUserQuery = "SELECT id FROM accounts WHERE username = ?";
                 const existingUser: any = await new Promise((resolve, reject) => {
                     this.context.connection.query(checkUserQuery, [username], (error, results: any) => {
                         if (error) reject(error);
@@ -90,13 +105,13 @@ export class HttpServer {
                 // Hash password
                 const hashedPassword = await this.context.authManager.hashPassword(password);
 
-                // Create character using Wyrt's schema
-                const createCharQuery = `INSERT INTO chars 
-                    (name, password, email, zone, home, class, gmlv) 
-                    VALUES (?, ?, ?, 'grim_wood', 'grim_wood', 1, 0)`;
+                // Create account using new schema
+                const createAccountQuery = `INSERT INTO accounts 
+                    (username, email, password_hash) 
+                    VALUES (?, ?, ?)`;
                 
                 const result: any = await new Promise((resolve, reject) => {
-                    this.context.connection.query(createCharQuery, [username, hashedPassword, email || null], (error, results) => {
+                    this.context.connection.query(createAccountQuery, [username, email || `${username}@example.com`, hashedPassword], (error, results) => {
                         if (error) reject(error);
                         else resolve(results);
                     });
@@ -144,16 +159,16 @@ export class HttpServer {
                     });
                 }
 
-                // Get character from Wyrt's chars table
-                const getCharQuery = "SELECT charid, name, password, gmlv FROM chars WHERE name = ?";
-                const character: any = await new Promise((resolve, reject) => {
-                    this.context.connection.query(getCharQuery, [username], (error, results: any) => {
+                // Get account from accounts table
+                const getAccountQuery = "SELECT id, username, password_hash, status FROM accounts WHERE username = ?";
+                const account: any = await new Promise((resolve, reject) => {
+                    this.context.connection.query(getAccountQuery, [username], (error, results: any) => {
                         if (error) reject(error);
                         else resolve(results[0]);
                     });
                 });
 
-                if (!character) {
+                if (!account) {
                     return res.status(401).json({ 
                         success: false, 
                         message: 'Invalid username or password' 
@@ -161,7 +176,7 @@ export class HttpServer {
                 }
 
                 // Verify password
-                const passwordValid = await this.context.authManager.comparePassword(password, character.password);
+                const passwordValid = await this.context.authManager.comparePassword(password, account.password_hash);
                 
                 if (!passwordValid) {
                     return res.status(401).json({ 
@@ -171,25 +186,25 @@ export class HttpServer {
                 }
 
                 // Update last login
-                const updateLoginQuery = "UPDATE chars SET last_login = NOW() WHERE charid = ?";
-                this.context.connection.query(updateLoginQuery, [character.charid]);
+                const updateLoginQuery = "UPDATE accounts SET last_login = NOW() WHERE id = ?";
+                this.context.connection.query(updateLoginQuery, [account.id]);
 
                 // Generate token
                 const payload: AuthPayload = {
-                    userId: character.charid,
-                    username: character.name,
-                    gmlv: character.gmlv || 0
+                    userId: account.id,
+                    username: account.username,
+                    gmlv: 0
                 };
 
                 const token = this.context.authManager.generateToken(payload);
 
-                this.context.logger.info(colors.green(`User logged in via HTTP: ${username} (ID: ${character.charid})`));
+                this.context.logger.info(colors.green(`User logged in via HTTP: ${username} (ID: ${account.id})`));
 
                 res.json({
                     success: true,
                     token: token,
-                    id: character.charid,
-                    username: character.name,
+                    id: account.id,
+                    username: account.username,
                     message: 'Login successful'
                 });
 

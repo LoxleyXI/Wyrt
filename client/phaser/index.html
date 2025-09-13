@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wyrt - 2D Tile RPG</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        #game-canvas {
+            border-radius: 5px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        #ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .health-bar {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #333;
+            border-radius: 15px;
+            overflow: hidden;
+            pointer-events: auto;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ff6666);
+            transition: width 0.3s ease;
+            border-radius: 13px;
+        }
+        
+        .mana-bar {
+            position: fixed;
+            top: 60px;
+            left: 20px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #333;
+            border-radius: 15px;
+            overflow: hidden;
+            pointer-events: auto;
+        }
+        
+        .mana-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4444ff, #6666ff);
+            transition: width 0.3s ease;
+            border-radius: 13px;
+        }
+        
+        .chat-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 400px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 10px;
+            pointer-events: auto;
+        }
+        
+        .chat-messages {
+            height: 150px;
+            overflow-y: auto;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .chat-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #555;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        .inventory {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: grid;
+            grid-template-columns: repeat(5, 50px);
+            gap: 5px;
+            pointer-events: auto;
+        }
+        
+        .inventory-slot {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #555;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .inventory-slot:hover {
+            border-color: #fff;
+            transform: scale(1.1);
+        }
+        
+        .inventory-slot img {
+            width: 40px;
+            height: 40px;
+            image-rendering: pixelated;
+        }
+        
+        #login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .login-form {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            min-width: 300px;
+        }
+        
+        .login-form h2 {
+            color: white;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .login-form input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+        }
+        
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            background: white;
+            color: #667eea;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .login-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .server-select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-screen">
+        <div class="login-form">
+            <h2>Wyrt Online</h2>
+            <input type="text" id="username" placeholder="Username" />
+            <input type="password" id="password" placeholder="Password" />
+            <select class="server-select" id="server-select">
+                <option value="tilegame">Tile Adventure (2D)</option>
+                <option value="ironwood">Legends of Ironwood (Text)</option>
+                <option value="arena">Battle Arena (PvP)</option>
+            </select>
+            <button onclick="login()">Enter World</button>
+        </div>
+    </div>
+    
+    <div id="game-container" style="display: none;">
+        <div id="game-canvas"></div>
+    </div>
+    
+    <div id="ui-overlay" style="display: none;">
+        <div class="health-bar">
+            <div class="health-fill" id="health-fill" style="width: 100%;"></div>
+        </div>
+        <div class="mana-bar">
+            <div class="mana-fill" id="mana-fill" style="width: 100%;"></div>
+        </div>
+        
+        <div class="inventory" id="inventory">
+            <!-- Inventory slots will be generated here -->
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-messages" id="chat-messages"></div>
+            <input type="text" class="chat-input" id="chat-input" placeholder="Press Enter to chat..." />
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <script src="js/network.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/scenes/BootScene.js"></script>
+    <script src="js/scenes/GameScene.js"></script>
+    <script src="js/entities/Player.js"></script>
+    <script src="js/entities/Entity.js"></script>
+    <script src="js/ui/UIManager.js"></script>
+    <script>
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const server = document.getElementById('server-select').value;
+            
+            if (!username || !password) {
+                alert('Please enter username and password');
+                return;
+            }
+            
+            // Initialize game with credentials
+            window.initGame(username, password, server);
+            
+            // Hide login screen
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            document.getElementById('ui-overlay').style.display = 'block';
+        }
+        
+        // Enter key to submit login
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+    </script>
+</body>
+</html>
