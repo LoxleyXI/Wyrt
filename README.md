@@ -1,4 +1,4 @@
-[![Wyrt](https://github.com/LoxleyXI/Wyrt/blob/main/www/src/assets/Wyrt.png)](https://github.com/LoxleyXI/Wyrt)
+[![Wyrt](https://github.com/LoxleyXI/Wyrt/blob/main/modules/wyrt_admin/www/public/Wyrt.png)](https://github.com/LoxleyXI/Wyrt)
 
 # Wyrt - Modular MMO Engine
 
