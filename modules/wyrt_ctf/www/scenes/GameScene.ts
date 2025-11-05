@@ -701,19 +701,26 @@ export default class GameScene extends Phaser.Scene {
         sprite = projectileGraphic;
       }
 
-      // Update position based on velocity
       const newX = projectile.position.x + projectile.velocity.x * 0.016;
       const newY = projectile.position.y + projectile.velocity.y * 0.016;
+
+      if (this.isPositionInCollisionBlock(newX, newY, 8)) {
+        this.showProjectileSplash({ x: newX, y: newY });
+        if (sprite) {
+          sprite.destroy();
+        }
+        this.projectileSprites.delete(projectile.id);
+        useGameStore.getState().removeProjectile(projectile.id);
+        continue;
+      }
 
       if (sprite) {
         sprite.setPosition(newX, newY);
       }
 
-      // Update projectile position in store
       projectile.position.x = newX;
       projectile.position.y = newY;
 
-      // Remove if out of bounds or too old
       const age = Date.now() - projectile.createdAt;
       if (age > 3000) {
         if (sprite) {
