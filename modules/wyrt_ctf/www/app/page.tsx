@@ -19,8 +19,8 @@ export default function Home() {
   // Don't render anything until client-side
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-gray-900 to-blue-900">
-        <div className="text-white text-2xl">Loading CTF...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-gray-400 text-xl">Loading CTF...</div>
       </div>
     );
   }
