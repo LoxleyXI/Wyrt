@@ -1,0 +1,57 @@
+{
+  "id": "ctf_arena",
+  "name": "CTF Arena",
+  "width": 50,
+  "height": 37,
+  "tileSize": 16,
+  "bases": {
+    "red": {
+      "team": "red",
+      "position": { "x": 128, "y": 128 },
+      "spawnPoints": [
+        { "x": 96, "y": 96 },
+        { "x": 128, "y": 96 },
+        { "x": 160, "y": 96 },
+        { "x": 96, "y": 128 },
+        { "x": 160, "y": 128 }
+      ]
+    },
+    "blue": {
+      "team": "blue",
+      "position": { "x": 672, "y": 464 },
+      "spawnPoints": [
+        { "x": 640, "y": 496 },
+        { "x": 672, "y": 496 },
+        { "x": 704, "y": 496 },
+        { "x": 640, "y": 464 },
+        { "x": 704, "y": 464 }
+      ]
+    }
+  },
+  "weaponSpawns": [
+    {
+      "position": { "x": 400, "y": 296 },
+      "type": "stun_gun"
+    },
+    {
+      "position": { "x": 200, "y": 200 },
+      "type": "speed_boost"
+    },
+    {
+      "position": { "x": 600, "y": 392 },
+      "type": "shield"
+    },
+    {
+      "position": { "x": 600, "y": 200 },
+      "type": "speed_boost"
+    }
+  ],
+  "collisionLayer": [
+    { "x": 320, "y": 200, "width": 32, "height": 96 },
+    { "x": 480, "y": 200, "width": 32, "height": 96 },
+    { "x": 320, "y": 360, "width": 32, "height": 96 },
+    { "x": 480, "y": 360, "width": 32, "height": 96 },
+    { "x": 240, "y": 296, "width": 64, "height": 32 },
+    { "x": 520, "y": 296, "width": 64, "height": 32 }
+  ]
+}

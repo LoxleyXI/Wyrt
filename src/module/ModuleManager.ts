@@ -118,15 +118,22 @@ export class ModuleManager extends EventEmitter {
             return;
         }
 
-        const moduleDirs = fs.readdirSync(moduleDir, { withFileTypes: true })
+        let moduleDirs = fs.readdirSync(moduleDir, { withFileTypes: true })
             .filter(dirent => dirent.isDirectory())
             .map(dirent => dirent.name);
+
+        // Filter modules if enabled list is specified in config
+        const enabledModules = this.context.config?.server?.modules?.enabled;
+        if (enabledModules && Array.isArray(enabledModules) && enabledModules.length > 0) {
+            this.logger.info(`Filtering modules: only loading ${enabledModules.join(', ')}`);
+            moduleDirs = moduleDirs.filter(dir => enabledModules.includes(dir));
+        }
 
         // Sort modules so wyrt_ prefixed modules load first
         moduleDirs.sort((a, b) => {
             const aIsWyrt = a.startsWith('wyrt_');
             const bIsWyrt = b.startsWith('wyrt_');
-            
+
             if (aIsWyrt && !bIsWyrt) return -1;
             if (!aIsWyrt && bIsWyrt) return 1;
             return a.localeCompare(b);
@@ -134,20 +141,36 @@ export class ModuleManager extends EventEmitter {
 
         this.logger.info(`Loading modules in order: ${moduleDirs.join(', ')}`);
 
+        // Phase 1: Load and initialize all modules (but don't activate yet)
         for (const dir of moduleDirs) {
             try {
-                await this.loadModule(path.join(moduleDir, dir));
+                await this.loadModule(path.join(moduleDir, dir), false);
             }
 
             catch (error) {
                 this.logger.error(`Failed to load module from ${dir}:`, error);
             }
         }
+
+        // Phase 2: Activate all modules (now all dependencies are loaded)
+        this.logger.info('Activating modules...');
+        for (const [moduleName, module] of this.modules.entries()) {
+            try {
+                if (module.activate) {
+                    await module.activate(this.context);
+                    this.logger.debug(`Activated module: ${moduleName}`);
+                }
+            }
+
+            catch (error) {
+                this.logger.error(`Failed to activate module ${moduleName}:`, error);
+            }
+        }
     }
 
-    async loadModule(modulePath: string): Promise<void> {
+    async loadModule(modulePath: string, shouldActivate: boolean = true): Promise<void> {
         const packageJsonPath = path.join(modulePath, 'package.json');
-        
+
         if (!fs.existsSync(packageJsonPath)) {
             throw new Error(`No package.json found at ${modulePath}`);
         }
@@ -178,11 +201,13 @@ export class ModuleManager extends EventEmitter {
                         await module.initialize(this.context);
                     }
 
-                    if (module.activate) {
+                    // Add to Map BEFORE activation so other modules can find it
+                    this.modules.set(moduleName, module);
+
+                    // Only activate if requested (for two-phase loading)
+                    if (shouldActivate && module.activate) {
                         await module.activate(this.context);
                     }
-
-                    this.modules.set(moduleName, module);
                 }
             }
 
@@ -313,6 +338,10 @@ export class ModuleManager extends EventEmitter {
 
     getModule(name: string): IModule | undefined {
         return this.modules.get(name);
+    }
+
+    getModules(): Map<string, IModule> {
+        return this.modules;
     }
 
     listModules(): IModule[] {

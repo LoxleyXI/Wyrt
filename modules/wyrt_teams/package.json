@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_teams",
+  "version": "1.0.0",
+  "description": "Generic team management system for multiplayer games",
+  "type": "module",
+  "main": "index.ts",
+  "author": "Loxley Games",
+  "license": "GPL-3.0"
+}

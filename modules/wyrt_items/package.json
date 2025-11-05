@@ -1,6 +1,9 @@
 {
     "name": "wyrt_items",
     "version": "0.0.1",
-    "description": "",
-    "main": "index.ts"
+    "description": "Item management system",
+    "main": "index.ts",
+    "type": "module",
+    "author": "Loxley Games",
+    "license": "GPL-3.0"
 }

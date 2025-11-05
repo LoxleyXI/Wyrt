@@ -4,7 +4,7 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node scripts/test-modules.js",
     "start": "tsx watch src",
     "demo": "npm --prefix modules/wyrt_demo/www run dev",
     "www": "npm --prefix www run dev",
@@ -38,7 +38,9 @@
     "@types/mysql": "^2.15.27",
     "@types/node": "^22.15.14",
     "@types/ws": "^8.18.1",
+    "@vitest/ui": "^4.0.7",
     "concurrently": "^9.2.0",
-    "tsx": "^4.19.4"
+    "tsx": "^4.19.4",
+    "vitest": "^4.0.7"
   }
 }

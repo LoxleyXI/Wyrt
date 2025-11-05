@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_admin",
+  "version": "1.0.0",
+  "description": "Admin panel module for Wyrt engine",
+  "main": "index.ts",
+  "type": "module",
+  "author": "Loxley Games",
+  "license": "GPL-3.0"
+}

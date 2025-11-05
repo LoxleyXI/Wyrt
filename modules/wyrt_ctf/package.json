@@ -1,0 +1,13 @@
+{
+  "name": "wyrt_ctf",
+  "version": "1.0.0",
+  "description": "Capture the Flag demo game for Wyrt",
+  "type": "module",
+  "main": "index.ts",
+  "author": "Loxley Games",
+  "license": "GPL-3.0",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run"
+  }
+}
