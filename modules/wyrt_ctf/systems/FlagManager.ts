@@ -86,7 +86,6 @@ export class FlagManager {
                 };
                 flag.droppedAt = Date.now();
 
-                console.log(`[FlagManager] ${team} flag dropped at (${flag.position.x}, ${flag.position.y})`);
 
                 return team as Team;
             }
@@ -116,7 +115,6 @@ export class FlagManager {
             : { x: 672, y: 464 };
         flag.position = basePosition;
 
-        console.log(`[FlagManager] ${flagTeam} flag returned to base`);
 
         return { success: true, message: "Flag returned!" };
     }
@@ -174,7 +172,6 @@ export class FlagManager {
         // Increment score
         this.scores[player.team]++;
 
-        console.log(`[FlagManager] ${player.team} team scored! Score: Red=${this.scores.red}, Blue=${this.scores.blue}`);
 
         // Check for win condition
         const won = this.scores[player.team] >= captureLimit;

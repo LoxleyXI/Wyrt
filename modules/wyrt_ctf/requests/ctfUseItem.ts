@@ -30,7 +30,6 @@ const handler: Request = {
             }
 
         } catch (error) {
-            console.error('[useItem] Error:', error);
             u.error('Failed to use item');
         }
     }

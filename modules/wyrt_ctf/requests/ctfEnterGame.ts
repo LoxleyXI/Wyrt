@@ -54,10 +54,8 @@ const handler: Request = {
                 player
             });
 
-            console.log(`[enterGame] Player ${playerName} (${u.id}) entered game on ${player.team} team`);
 
         } catch (error) {
-            console.error('[enterGame] Error:', error);
             u.error('Failed to join game');
         }
     }

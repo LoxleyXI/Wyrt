@@ -126,7 +126,6 @@ export class CTFGameManager {
             this.handleProjectileHit(hitEvent);
         });
 
-        console.log('[CTFGameManager] Initialized');
     }
 
     private startGameLoop(): void {
@@ -155,7 +154,6 @@ export class CTFGameManager {
         if (this.gameLoopInterval) {
             clearInterval(this.gameLoopInterval);
             this.gameLoopInterval = null;
-            console.log('[CTFGameManager] Game loop stopped');
         }
     }
 
@@ -190,7 +188,6 @@ export class CTFGameManager {
             if (this.isPositionInCollisionBlock(projPos, projRadius)) {
                 this.gameState.projectiles.delete(id);
                 this.projectiles.removeProjectile(id);
-                console.log(`[CTFGameManager] Projectile ${id} hit wall at (${projPos.x}, ${projPos.y})`);
 
                 // Broadcast projectile hit wall event
                 this.context.events.emit('ctf:projectileHitWall', {
@@ -270,7 +267,6 @@ export class CTFGameManager {
             const timeSinceActivity = now - player.lastActivityTime;
             if (timeSinceActivity >= DISCONNECT_TIMEOUT) {
                 disconnectedPlayers.push(playerId);
-                console.log(`[CTFGameManager] Player ${player.name} (${playerId}) disconnected after ${Math.floor(timeSinceActivity / 1000)}s of inactivity`);
             }
         }
 
@@ -319,7 +315,6 @@ export class CTFGameManager {
 
         this.gameState.players.set(playerId, player);
 
-        console.log(`[CTFGameManager] Player ${playerName} (${playerId}) joined ${teamId} team`);
 
         this.startGameLoop();
 
@@ -347,7 +342,6 @@ export class CTFGameManager {
 
         this.gameState.players.delete(playerId);
 
-        console.log(`[CTFGameManager] Player ${playerId} left the game`);
 
         // Stop game if not enough players
         if (this.gameState.players.size < 2 && this.gameState.status === 'playing') {
@@ -369,7 +363,6 @@ export class CTFGameManager {
         // Check if new position collides with walls (reject movement if it does)
         const PLAYER_RADIUS = 16;
         if (this.isPositionInCollisionBlock(position, PLAYER_RADIUS)) {
-            console.log(`[CTFGameManager] Player ${playerId} movement blocked by wall at (${position.x}, ${position.y})`);
             return;  // Don't update position if it collides with a wall
         }
 
@@ -489,7 +482,6 @@ export class CTFGameManager {
                             p.boostEndsAt = Date.now() + duration;
                         }
                         this.broadcastBoostActivated(targetId, boostType, duration);
-                        console.log(`[CTFGameManager] ${boostType} activated for player ${targetId}`);
                     },
                     onExpire: (targetId, buff) => {
                         const p = this.gameState.players.get(targetId);
@@ -508,7 +500,6 @@ export class CTFGameManager {
                             }
                         }
                         this.broadcastBoostExpired(targetId, boostType);
-                        console.log(`[CTFGameManager] ${boostType} expired for player ${targetId}`);
                     }
                 });
 
@@ -694,18 +685,14 @@ export class CTFGameManager {
 
         // Drop flag IMMEDIATELY if carrying
         if (target.carryingFlag) {
-            console.log(`[CTFGameManager] Player ${actualTargetId} carrying flag, dropping now at position`, target.position);
             const droppedTeam = this.flagManager.dropFlag(actualTargetId, target.position);
             if (droppedTeam) {
                 // Get the actual flag position (which has random offset applied)
                 const actualFlagPosition = this.gameState.flags[droppedTeam].position;
-                console.log(`[CTFGameManager] ${droppedTeam} flag dropped successfully at (${actualFlagPosition.x}, ${actualFlagPosition.y}), broadcasting event`);
                 this.broadcastFlagDropped(droppedTeam, actualFlagPosition, actualTargetId);
             } else {
-                console.log(`[CTFGameManager] WARNING: dropFlag returned null`);
             }
         } else {
-            console.log(`[CTFGameManager] Player ${actualTargetId} not carrying flag`);
         }
 
         // Clear all buffs/boosts on death
@@ -732,7 +719,6 @@ export class CTFGameManager {
             respawnAt: target.respawnAt
         });
 
-        console.log(`[CTFGameManager] Player ${actualTargetId} killed, respawning in ${this.respawn.getRespawnTime()}ms`);
     }
 
     /**
@@ -761,7 +747,6 @@ export class CTFGameManager {
             position: spawnPosition
         });
 
-        console.log(`[CTFGameManager] Player ${playerId} respawned at base`);
     }
 
     /**
@@ -774,7 +759,6 @@ export class CTFGameManager {
 
         this.stop();
 
-        console.log(`[CTFGameManager] Match ended! ${winningTeam.toUpperCase()} team wins!`);
 
         this.broadcastMatchEnded(winningTeam);
 
@@ -851,7 +835,6 @@ export class CTFGameManager {
         // Restart game loop
         this.start();
 
-        console.log('[CTFGameManager] Game has been reset');
     }
 
     /**

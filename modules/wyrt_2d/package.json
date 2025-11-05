@@ -1,0 +1,10 @@
+{
+  "name": "wyrt_2d",
+  "version": "1.0.0",
+  "description": "2D multiplayer position tracking and synchronization for Wyrt games",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {},
+  "author": "Wyrt Engine",
+  "license": "GPL-3.0"
+}

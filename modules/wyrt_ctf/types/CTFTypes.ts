@@ -11,31 +11,16 @@
  * - Using Maps for entity storage
  */
 
-/**
- * Position in 2D space
- */
-export interface Position {
-    x: number;
-    y: number;
-}
+// Import position/direction types from wyrt_2d module (shared across all 2D games)
+import { Position, Direction, Velocity } from '../../wyrt_2d/types/Position2D';
 
-/**
- * Velocity vector for projectiles
- */
-export interface Velocity {
-    x: number;
-    y: number;
-}
+// Re-export for convenience
+export { Position, Direction, Velocity };
 
 /**
  * Team identifier
  */
 export type Team = 'red' | 'blue';
-
-/**
- * Player direction for sprite animations
- */
-export type Direction = 'up' | 'down' | 'left' | 'right';
 
 /**
  * Game match status

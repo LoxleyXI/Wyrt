@@ -1,0 +1,10 @@
+{
+  "name": "wyrt_mobs",
+  "version": "1.0.0",
+  "description": "Generic NPC/enemy system with AI, spawning, damage, and aggro for Wyrt games",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {},
+  "author": "Wyrt Engine",
+  "license": "GPL-3.0"
+}
