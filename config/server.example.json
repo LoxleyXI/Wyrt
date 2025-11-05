@@ -1,0 +1,54 @@
+{
+    "info": {
+        "name": "wyrt",
+        "version": "1.0.0"
+    },
+
+   "db": {
+        "host":     "localhost",
+        "user":     "root",
+        "password": "your-password-here",
+        "database": "wyrt"
+    },
+
+    "ports": {
+        "web":    4040,
+        "socket": 8080
+    },
+
+    "certificates": {
+        "cert": "domain.crt",
+        "key":  "domain.key"
+    },
+
+    "modules": {
+        "enabled": []
+    },
+
+    "options": {
+        "dev":          true,
+        "web":          true,
+        "nodb":         false,
+        "example":      true,
+        "demo":         true,
+        "ctf":          true,
+        "ratePoolSize": 30,
+        "allowRegistration": true
+    },
+
+    "auth": {
+        "jwtSecret": "change-this-to-a-random-string-in-production",
+        "jwtExpiration": "24h",
+        "saltRounds": 12
+    },
+
+    "rateLimiting": {
+        "bucketCapacity": 100,
+        "refillRate": 10,
+        "cleanupInterval": 300000
+    },
+
+    "logging": {
+        "level": "info"
+    }
+}

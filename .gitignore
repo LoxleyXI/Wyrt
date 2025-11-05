@@ -2,11 +2,16 @@ node_modules
 config/*
 !config/certs.md
 !config/default
+!config/server.example.json
 
-# Game website
-www
-
-# Include Wyrt but exclude game modules
+# Module organization:
+# - Exclude all modules by default
+# - Include all wyrt_* framework modules
+# - Exclude developer game modules (ironwood, demo_game, etc.)
 modules/*
-!modules/wyrt_core
-!modules/wyrt_items
+!modules/wyrt_*/
+
+# Environment files
+.env
+.env.local
+.env.*.local

@@ -1,6 +1,9 @@
 {
     "name": "wyrt_core",
     "version": "0.0.1",
-    "description": "",
-    "main": "index.ts"
+    "description": "Core authentication and character management",
+    "main": "index.ts",
+    "type": "module",
+    "author": "Loxley Games",
+    "license": "GPL-3.0"
 }

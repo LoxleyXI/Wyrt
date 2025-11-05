@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_rooms",
+  "version": "1.0.0",
+  "description": "Core room system module for Wyrt with abstract positioning support",
+  "main": "index.ts",
+  "author": "Wyrt",
+  "license": "GPL-3.0",
+  "dependencies": {}
+}

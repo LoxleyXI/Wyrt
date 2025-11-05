@@ -18,8 +18,8 @@ interface ModuleWebApp {
 export class WebManager {
   private modulesDir: string;
   private webApps: ModuleWebApp[] = [];
-  private basePort: number = 3000;
-  private maxPort: number = 3099;
+  private basePort: number = 8000;
+  private maxPort: number = 8099;
   private processes: (ChildProcess | null)[] = [];
   private config: any;
 
@@ -57,32 +57,52 @@ export class WebManager {
 
   private async findModuleWebApps(): Promise<ModuleWebApp[]> {
     const webApps: ModuleWebApp[] = [];
-    
+
     if (!fs.existsSync(this.modulesDir)) {
-      console.log('[WebManager] No modules directory found');
+      console.log(`[WebManager] No modules directory found at: ${this.modulesDir}`);
       return webApps;
     }
 
-    const modules = fs.readdirSync(this.modulesDir);
+    let modules = fs.readdirSync(this.modulesDir);
+
+    // Filter modules based on enabled list (if specified)
+    const enabledModules = this.config?.server?.modules?.enabled;
+    if (enabledModules && Array.isArray(enabledModules) && enabledModules.length > 0) {
+      modules = modules.filter(module => enabledModules.includes(module));
+      console.log(`[WebManager] Filtering to enabled modules: ${enabledModules.join(', ')}`);
+    }
+
+    console.log(`[WebManager] Scanning ${modules.length} modules for web apps...`);
     let nextPort = this.basePort;
-    
+
     for (const module of modules) {
       if (module === 'wyrt_demo' && this.config?.server?.options?.demo === false) {
         console.log('[WebManager] Skipping wyrt_demo module (demo disabled in config)');
         continue;
       }
-      
+
+      if (module === 'wyrt_ctf' && this.config?.server?.options?.ctf === false) {
+        console.log('[WebManager] Skipping wyrt_ctf module (ctf disabled in config)');
+        continue;
+      }
+
       const wwwPath = path.join(this.modulesDir, module, 'www');
       const packageJsonPath = path.join(wwwPath, 'package.json');
-      
+
       if (fs.existsSync(wwwPath) && fs.existsSync(packageJsonPath)) {
         try {
           const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-          
+
+          // Check if dev script exists
+          if (!packageJson.scripts || !packageJson.scripts.dev) {
+            console.log(`[WebManager] Module ${module} has www/ but no 'dev' script in package.json`);
+            continue;
+          }
+
           // Find an available port
           const port = await this.findAvailablePort(nextPort);
           nextPort = port + 1;
-          
+
           webApps.push({
             name: module,
             path: wwwPath,
@@ -94,7 +114,7 @@ export class WebManager {
         }
       }
     }
-    
+
     return webApps;
   }
 
@@ -121,30 +141,65 @@ export class WebManager {
 
   private startWebApp(webApp: ModuleWebApp): ChildProcess | null {
     console.log(`[WebManager] Starting web app for module: ${webApp.name} on port ${webApp.port}`);
-    
+
     // Check and install dependencies if needed
     if (!this.installDependencies(webApp)) {
       console.error(`[WebManager] Cannot start ${webApp.name} without dependencies`);
       return null;
     }
-    
+
+    // Check if we're in production mode
+    const isProduction = process.env.NODE_ENV === 'production' || this.config?.options?.production;
+
     // For Next.js apps, we need to pass the port differently
-    const env = { ...process.env, PORT: String(webApp.port) };
+    const env = {
+      ...process.env,
+      PORT: String(webApp.port),
+      NODE_ENV: isProduction ? 'production' : 'development'
+    };
     const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    
-    if (webApp.packageJson.scripts && webApp.packageJson.scripts.dev) {
-      // Check if it's a Next.js app
-      const isNextApp = webApp.packageJson.dependencies?.next || webApp.packageJson.devDependencies?.next;
-      
-      let args: string[];
-      if (isNextApp) {
-        // For Next.js, pass the port as an argument
-        args = ['run', 'dev', '--', '-p', String(webApp.port)];
-      } else {
-        // For other frameworks (like Vite), use PORT env var
-        args = ['run', 'dev'];
+
+    // Detect framework type
+    const isNextApp = webApp.packageJson.dependencies?.next || webApp.packageJson.devDependencies?.next;
+    const isViteApp = webApp.packageJson.dependencies?.vite || webApp.packageJson.devDependencies?.vite;
+
+    // Build for production if needed
+    if (isProduction && webApp.packageJson.scripts?.build) {
+      const buildDir = isNextApp ? path.join(webApp.path, '.next') : path.join(webApp.path, 'dist');
+      if (!fs.existsSync(buildDir)) {
+        console.log(`[WebManager] Building ${webApp.name} for production...`);
+        try {
+          execSync(`${npm} run build`, {
+            cwd: webApp.path,
+            stdio: 'inherit'
+          });
+        } catch (error: any) {
+          console.error(`[WebManager] Failed to build ${webApp.name}:`, error.message);
+          return null;
+        }
       }
-      
+    }
+
+    // Choose script based on environment
+    const script = isProduction && webApp.packageJson.scripts?.start ? 'start' : 'dev';
+
+    if (!webApp.packageJson.scripts?.[script]) {
+      console.error(`[WebManager] Module ${webApp.name} has no '${script}' script`);
+      return null;
+    }
+
+    let args: string[];
+    if (isNextApp) {
+      // For Next.js, pass the port and hostname as arguments
+      args = ['run', script, '--', '-p', String(webApp.port), '--hostname', '0.0.0.0'];
+    } else if (isViteApp && script === 'dev') {
+      // For Vite dev mode, use --port flag
+      args = ['run', script, '--', '--port', String(webApp.port), '--host', '0.0.0.0'];
+    } else {
+      // For other frameworks or production builds, try PORT env var
+      args = ['run', script];
+    }
+
       const child = spawn(npm, args, {
         cwd: webApp.path,
         env,
@@ -161,35 +216,50 @@ export class WebManager {
           console.error(`[WebManager] ${webApp.name} web app exited with code ${code}`);
         }
       });
-      
+
       return child;
-    } else {
-      console.log(`[WebManager] No 'dev' script found for ${webApp.name} web app`);
-      return null;
-    }
   }
 
   private setupShutdownHandlers(): void {
     process.on('SIGINT', () => {
-      this.shutdown('SIGINT');
+      this.shutdownInternal('SIGINT');
     });
-    
+
     process.on('SIGTERM', () => {
-      this.shutdown('SIGTERM');
+      this.shutdownInternal('SIGTERM');
     });
   }
 
-  private shutdown(signal: string): void {
+  private shutdownInternal(signal: string): void {
     console.log(`\n[WebManager] Shutting down module web apps (${signal})...`);
     this.processes.forEach(p => {
-      if (p) p.kill(signal as any);
+      if (p) {
+        try {
+          p.kill(signal as any);
+        } catch (error: any) {
+          console.error(`[WebManager] Error killing process:`, error.message);
+        }
+      }
     });
-    process.exit(0);
+    // Don't call process.exit() - let the main server handle that
+  }
+
+  /**
+   * Public shutdown method (called by main server)
+   */
+  public shutdown(): void {
+    this.shutdownInternal('SIGTERM');
   }
 
   public async start(): Promise<void> {
+    // Skip web apps if disabled in config
+    if (this.config?.server?.options?.web === false) {
+      console.log('[WebManager] Module web apps disabled in config');
+      return;
+    }
+
     this.webApps = await this.findModuleWebApps();
-    
+
     if (this.webApps.length === 0) {
       console.log('[WebManager] No module web apps found');
       return;

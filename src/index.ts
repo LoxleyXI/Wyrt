@@ -99,10 +99,25 @@ const moduleContext: ModuleContext = {
     rateLimiter,
     config,
     events,
-    logger
+    logger,
+    getModule: (moduleName: string) => {
+        // Will be set after moduleManager is created
+        return null;
+    }
 };
 
 const moduleManager = new ModuleManager(moduleContext);
+
+// Now that moduleManager exists, wire up getModule
+moduleContext.getModule = (moduleName: string) => {
+    return moduleManager.getModule(moduleName);
+};
+
+// Expose moduleManager globally for admin panel access
+(globalThis as any).moduleManager = moduleManager;
+
+// WebManager - initialized in startServer()
+let webManager: WebManager | null = null;
 
 //----------------------------------
 // Load modules and data
@@ -165,10 +180,10 @@ function onReceived(u: User, input: string) {
         // Emit event for modules
         events.emit('requestReceived', u, request);
 
-        // Log request (in dev mode)
-        if (config.server.options.dev) {
-            logger.debug(`${userId} -> ${request.type} (cost: ${handler.cost})`);
-        }
+        // Log request (in dev mode) - disabled to reduce spam
+        // if (config.server.options.dev) {
+        //     logger.debug(`${userId} -> ${request.type} (cost: ${handler.cost})`);
+        // }
 
         // Execute handler
         Promise.resolve(handler.exec(u, data, request, moduleContext))
@@ -254,7 +269,8 @@ async function startServer() {
         httpServer.start();
 
         // Start module web applications
-        const webManager = new WebManager(undefined, config);
+        webManager = new WebManager(undefined, config);
+        moduleContext.webManager = webManager;
         await webManager.start();
 
         // Start WebSocket server
@@ -297,6 +313,11 @@ async function startServer() {
 //----------------------------------
 function serverClose() {
     logger.info("\n=== Server shutting down ===");
+
+    // Shutdown module web applications first
+    if (webManager) {
+        webManager.shutdown();
+    }
 
     events.emit('serverShutdown');
 

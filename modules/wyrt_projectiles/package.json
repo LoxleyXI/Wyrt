@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_projectiles",
+  "version": "1.0.0",
+  "description": "Generic projectile physics and collision system for multiplayer games",
+  "type": "module",
+  "main": "index.ts",
+  "author": "Loxley Games",
+  "license": "GPL-3.0"
+}

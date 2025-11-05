@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_combat",
+  "version": "1.0.0",
+  "description": "Core combat system module for Wyrt",
+  "main": "index.ts",
+  "author": "Wyrt",
+  "license": "GPL-3.0",
+  "dependencies": {}
+}

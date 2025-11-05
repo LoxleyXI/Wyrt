@@ -26,6 +26,7 @@ import { ModuleRequestTypes } from "./ModuleRequestTypes";
 import { AuthManager } from "../server/AuthManager";
 import { RateLimiter } from "../server/RateLimiter";
 import { Logger } from "../server/ConsoleLogger";
+import { WebManager } from "../server/WebManager";
 
 export interface ModuleContext {
     connection: Connection;
@@ -37,4 +38,6 @@ export interface ModuleContext {
     config: any;
     events: EventEmitter;
     logger: Logger;
+    getModule: (moduleName: string) => any;
+    webManager?: WebManager;
 }

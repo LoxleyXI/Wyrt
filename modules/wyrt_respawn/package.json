@@ -1,0 +1,13 @@
+{
+  "name": "wyrt_respawn",
+  "version": "1.0.0",
+  "description": "Generic respawn system for multiplayer games",
+  "type": "module",
+  "main": "index.ts",
+  "author": "Loxley Games",
+  "license": "GPL-3.0",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run"
+  }
+}
