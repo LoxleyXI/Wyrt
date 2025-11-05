@@ -23,6 +23,8 @@ Framework modules that provide reusable game systems:
 - **wyrt_core**: Base functionality, authentication, character management
 - **wyrt_admin**: Web-based admin panel with server monitoring
 - **wyrt_ctf**: Complete Capture the Flag demo game
+- **wyrt_2d**: 2D position tracking and utilities
+- **wyrt_mobs**: Generic NPC/enemy system with AI
 - **wyrt_collision**: Collision detection with sliding movement
 - **wyrt_teams**: Team management with auto-balancing
 - **wyrt_pickups**: Item pickup/spawn system
