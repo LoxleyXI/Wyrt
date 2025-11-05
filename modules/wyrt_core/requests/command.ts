@@ -33,6 +33,13 @@ const handler: Request = {
             return;
         }
 
+        // Check if exec function exists
+        if (typeof command.exec !== 'function') {
+            console.error(`[command.ts] Command '${name}' does not have an exec function. Command object:`, command);
+            u.error(`Internal error: Command '${name}' is misconfigured`);
+            return;
+        }
+
         command.exec(u, data, args || []);
     }
 };

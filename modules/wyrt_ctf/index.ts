@@ -16,14 +16,14 @@ export default class WyrtCTFModule implements IModule {
     name = 'wyrt_ctf';
     version = '1.0.0';
     description = 'Capture the Flag demo game';
-    dependencies = ['wyrt_core', 'wyrt_collision', 'wyrt_teams', 'wyrt_pickups', 'wyrt_projectiles', 'wyrt_buffs', 'wyrt_respawn'];
+    dependencies = ['wyrt_core', 'wyrt_2d', 'wyrt_collision', 'wyrt_teams', 'wyrt_pickups', 'wyrt_projectiles', 'wyrt_buffs', 'wyrt_respawn'];
 
     private context?: ModuleContext;
     private gameManager?: CTFGameManager;
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
-        console.log(`[${this.name}] Initialized`);
+        context.logger.info(`[wyrt_ctf] Initialized`);
     }
 
     async activate(): Promise<void> {
@@ -31,7 +31,7 @@ export default class WyrtCTFModule implements IModule {
             throw new Error('Context not initialized');
         }
 
-        console.log(`[${this.name}] Initializing CTF game...`);
+        context.logger.info(`[wyrt_ctf] Initializing CTF game...`);
 
         // Load map configuration
         const mapPath = path.join(__dirname, 'data/maps/ctf_arena.json');
@@ -45,7 +45,7 @@ export default class WyrtCTFModule implements IModule {
         // Set up event handlers
         this.setupEventHandlers(this.context);
 
-        console.log(`[${this.name}] CTF game activated`);
+        context.logger.info(`[wyrt_ctf] CTF game activated`);
     }
 
     async deactivate(): Promise<void> {
@@ -53,7 +53,7 @@ export default class WyrtCTFModule implements IModule {
             (this.gameManager as any).stop();
         }
         delete (globalThis as any).ctfGameManager;
-        console.log(`${this.name} module deactivated`);
+        context.logger.info(`wyrt_ctf module deactivated`);
     }
 
     private setupEventHandlers(context: ModuleContext): void {
@@ -97,6 +97,5 @@ export default class WyrtCTFModule implements IModule {
             }
         }
 
-        // console.log(`[${this.name}] Broadcast: ${type} to ${Object.keys(users).length} users`);
     }
 }

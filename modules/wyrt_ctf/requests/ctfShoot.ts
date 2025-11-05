@@ -34,7 +34,6 @@ const handler: Request = {
             }
 
         } catch (error) {
-            console.error('[shoot] Error:', error);
             u.error('Failed to shoot');
         }
     }

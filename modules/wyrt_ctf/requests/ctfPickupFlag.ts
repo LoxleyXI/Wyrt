@@ -36,7 +36,6 @@ const handler: Request = {
             }
 
         } catch (error) {
-            console.error('[pickupFlag] Error:', error);
             u.error('Failed to pick up flag');
         }
     }

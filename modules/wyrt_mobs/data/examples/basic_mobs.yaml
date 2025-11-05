@@ -1,0 +1,70 @@
+# Example Mob Templates for wyrt_mobs
+#
+# Games can copy this structure and create their own mob definitions.
+# Each mob is identified by its key (e.g., 'wolf', 'goblin')
+
+wolf:
+  name: "Gray Wolf"
+  description: "A wild gray wolf with sharp teeth and piercing eyes."
+  min: 1
+  max: 3
+  baseHp: 15
+  hpPerLevel: 5
+  damage: 3
+  respawn: 30
+  stats:
+    str: 12
+    dex: 14
+    con: 11
+    int: 4
+    wis: 8
+    cha: 6
+  hostile: false
+  aggressive: false
+  roaming: true
+
+goblin:
+  name: "Goblin Warrior"
+  description: "A small, green-skinned humanoid armed with a crude weapon."
+  min: 2
+  max: 5
+  baseHp: 20
+  hpPerLevel: 8
+  damage: 5
+  respawn: 45
+  stats:
+    str: 10
+    dex: 12
+    con: 10
+    int: 8
+    wis: 7
+    cha: 5
+  hostile: true
+  aggressive: true
+  roaming: true
+  loot:
+    - item: "rusty_sword"
+      chance: 0.1
+    - item: "gold_coin"
+      min: 1
+      max: 5
+      chance: 0.5
+
+skeleton:
+  name: "Undead Skeleton"
+  description: "The reanimated bones of a long-dead warrior."
+  level: 3
+  baseHp: 25
+  hpPerLevel: 10
+  damage: 7
+  respawn: 60
+  stats:
+    str: 11
+    dex: 10
+    con: 8
+    int: 3
+    wis: 5
+    cha: 4
+  hostile: true
+  aggressive: true
+  roaming: false

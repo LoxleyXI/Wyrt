@@ -38,7 +38,6 @@ const handler: Request = {
             });
 
         } catch (error) {
-            console.error('[move] Error:', error);
         }
     }
 };
