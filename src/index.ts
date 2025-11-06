@@ -30,6 +30,7 @@ import { EventEmitter } from "events";
 
 // Types
 import { User } from "./types/User";
+import { CharacterCreateHook, CharacterSelectHook } from "./types/Hooks.js";
 
 import { RateLimiter } from "./server/RateLimiter";
 import { AuthManager } from "./server/AuthManager";
@@ -90,6 +91,10 @@ if (!config.server.options.nodb) {
 //----------------------------------
 // Module System Setup
 //----------------------------------
+// Hook registries
+const characterCreateHooks = new Map<string, CharacterCreateHook>();
+const characterSelectHooks = new Map<string, CharacterSelectHook>();
+
 const moduleContext: ModuleContext = {
     connection,
     data,
@@ -103,6 +108,20 @@ const moduleContext: ModuleContext = {
     getModule: (moduleName: string) => {
         // Will be set after moduleManager is created
         return null;
+    },
+    registerCharacterCreateHook: (gameId: string, hook: CharacterCreateHook) => {
+        characterCreateHooks.set(gameId, hook);
+        logger.info(`Registered character create hook for game: ${gameId}`);
+    },
+    getCharacterCreateHook: (gameId: string) => {
+        return characterCreateHooks.get(gameId);
+    },
+    registerCharacterSelectHook: (gameId: string, hook: CharacterSelectHook) => {
+        characterSelectHooks.set(gameId, hook);
+        logger.info(`Registered character select hook for game: ${gameId}`);
+    },
+    getCharacterSelectHook: (gameId: string) => {
+        return characterSelectHooks.get(gameId);
     }
 };
 
@@ -266,6 +285,7 @@ async function startServer() {
 
         // Start HTTP server for authentication
         const httpServer = new HttpServer(moduleContext, config.server.ports.web || 3001);
+        (moduleContext as any).httpServer = httpServer;
         httpServer.start();
 
         // Start module web applications

@@ -31,7 +31,7 @@ export default class WyrtCTFModule implements IModule {
             throw new Error('Context not initialized');
         }
 
-        context.logger.info(`[wyrt_ctf] Initializing CTF game...`);
+        this.context.logger.info(`[wyrt_ctf] Initializing CTF game...`);
 
         // Load map configuration
         const mapPath = path.join(__dirname, 'data/maps/ctf_arena.json');
@@ -45,7 +45,7 @@ export default class WyrtCTFModule implements IModule {
         // Set up event handlers
         this.setupEventHandlers(this.context);
 
-        context.logger.info(`[wyrt_ctf] CTF game activated`);
+        this.context.logger.info(`[wyrt_ctf] CTF game activated`);
     }
 
     async deactivate(): Promise<void> {
@@ -53,7 +53,9 @@ export default class WyrtCTFModule implements IModule {
             (this.gameManager as any).stop();
         }
         delete (globalThis as any).ctfGameManager;
-        context.logger.info(`wyrt_ctf module deactivated`);
+        if (this.context) {
+            this.context.logger.info(`wyrt_ctf module deactivated`);
+        }
     }
 
     private setupEventHandlers(context: ModuleContext): void {
