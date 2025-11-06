@@ -27,6 +27,7 @@ import { AuthManager } from "../server/AuthManager";
 import { RateLimiter } from "../server/RateLimiter";
 import { Logger } from "../server/ConsoleLogger";
 import { WebManager } from "../server/WebManager";
+import { CharacterCreateHook, CharacterSelectHook } from "../types/Hooks.js";
 
 export interface ModuleContext {
     connection: Connection;
@@ -40,4 +41,10 @@ export interface ModuleContext {
     logger: Logger;
     getModule: (moduleName: string) => any;
     webManager?: WebManager;
+
+    // Hook system
+    registerCharacterCreateHook: (gameId: string, hook: CharacterCreateHook) => void;
+    getCharacterCreateHook: (gameId: string) => CharacterCreateHook | undefined;
+    registerCharacterSelectHook: (gameId: string, hook: CharacterSelectHook) => void;
+    getCharacterSelectHook: (gameId: string) => CharacterSelectHook | undefined;
 }

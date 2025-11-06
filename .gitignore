@@ -3,6 +3,7 @@ config/*
 !config/certs.md
 !config/default
 !config/server.example.json
+*.log
 
 # Module organization:
 # - Exclude all modules by default

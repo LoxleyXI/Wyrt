@@ -246,6 +246,66 @@ export class HttpServer {
             });
         });
 
+        // Generic module data API
+        this.app.get('/api/data/:module/:category/:name?', async (req: Request, res: Response) => {
+            try {
+                const { module: moduleName, category, name } = req.params;
+
+                // Check if module exists
+                const module = this.context.getModule(moduleName);
+                if (!module) {
+                    return res.status(404).json({
+                        success: false,
+                        message: `Module '${moduleName}' not found`
+                    });
+                }
+
+                // Build data path
+                const dataPath = name
+                    ? `${moduleName}.${category}.${name}`
+                    : `${moduleName}.${category}`;
+
+                // Get data from module's data store
+                const data = this.context.data[moduleName]?.[category];
+
+                if (!data) {
+                    return res.status(404).json({
+                        success: false,
+                        message: `Data category '${category}' not found in module '${moduleName}'`
+                    });
+                }
+
+                // If specific item requested
+                if (name) {
+                    const item = data[name];
+                    if (!item) {
+                        return res.status(404).json({
+                            success: false,
+                            message: `Item '${name}' not found in ${moduleName}.${category}`
+                        });
+                    }
+
+                    return res.json({
+                        success: true,
+                        data: item
+                    });
+                }
+
+                // Return entire category
+                res.json({
+                    success: true,
+                    data: data
+                });
+
+            } catch (error) {
+                this.context.logger.error(`Error loading module data: ${error}`);
+                res.status(500).json({
+                    success: false,
+                    message: 'Internal server error'
+                });
+            }
+        });
+
         // 404 handler
         this.app.use((req: Request, res: Response) => {
             res.status(404).json({ 

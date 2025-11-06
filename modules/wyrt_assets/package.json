@@ -1,0 +1,7 @@
+{
+  "name": "wyrt_assets",
+  "version": "1.0.0",
+  "description": "Generic asset serving and management for Wyrt modules",
+  "type": "module",
+  "main": "index.ts"
+}

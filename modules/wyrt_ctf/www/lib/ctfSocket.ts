@@ -50,8 +50,12 @@ export class CTFSocket {
             let message = JSON.parse(event.data);
             // console.log('[CTFSocket] Received:', message);
 
-            // Handle Wyrt's message format where actual data is in 'msg' field
+            // Handle Wyrt's message format:
+            // type 0 = System/Game messages (msg contains JSON game data)
+            // type 1 = Error messages (msg contains error text)
+            // type 2 = Chat messages
             if (message.type === 0 && message.msg) {
+              // Game message - unwrap the JSON
               try {
                 message = JSON.parse(message.msg);
                 // console.log('[CTFSocket] Parsed inner message:', message);
@@ -59,6 +63,13 @@ export class CTFSocket {
                 // If msg is not JSON, use as is
                 message = { type: 'text', content: message.msg };
               }
+            } else if (message.type === 1) {
+              // Error message - show error
+              console.error('[CTFSocket] Server error:', message.msg);
+              message = { type: 'error', content: message.msg };
+            } else if (message.type === 2) {
+              // Chat message
+              message = { type: 'chat', content: message.msg };
             }
 
             this.handleMessage(message);

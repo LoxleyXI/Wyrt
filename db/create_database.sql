@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS characters (
     id INT AUTO_INCREMENT PRIMARY KEY,
     account_id INT NOT NULL,
-    game_id VARCHAR(50) NOT NULL, -- 'ironwood', 'demo_game', etc.
+    game_id VARCHAR(50) NOT NULL, -- Game module identifier
     name VARCHAR(50) NOT NULL,
     level INT DEFAULT 1,
     class VARCHAR(50),
@@ -54,120 +54,6 @@ CREATE TABLE IF NOT EXISTS character_data (
     data_value JSON,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (character_id, data_key),
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- ==================================
--- Ironwood-specific tables
--- ==================================
-
--- Ironwood character stats
-CREATE TABLE IF NOT EXISTS ironwood_stats (
-    character_id INT PRIMARY KEY,
-    hp INT DEFAULT 100,
-    max_hp INT DEFAULT 100,
-    mp INT DEFAULT 50,
-    max_mp INT DEFAULT 50,
-    strength INT DEFAULT 10,
-    dexterity INT DEFAULT 10,
-    intelligence INT DEFAULT 10,
-    defense INT DEFAULT 10,
-    agility INT DEFAULT 10,
-    experience INT DEFAULT 0,
-    gold INT DEFAULT 0,
-    zone VARCHAR(100) DEFAULT 'maiden_wood',
-    room VARCHAR(100) DEFAULT 'Green_Thicket',
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- Ironwood inventory
-CREATE TABLE IF NOT EXISTS ironwood_inventory (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    character_id INT NOT NULL,
-    item_id VARCHAR(100) NOT NULL,
-    quantity INT DEFAULT 1,
-    equipped BOOLEAN DEFAULT FALSE,
-    slot VARCHAR(50),
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-    INDEX idx_character (character_id),
-    INDEX idx_item (item_id)
-) ENGINE=InnoDB;
-
--- Ironwood skills
-CREATE TABLE IF NOT EXISTS ironwood_skills (
-    character_id INT NOT NULL,
-    skill_name VARCHAR(100) NOT NULL,
-    level INT DEFAULT 0,
-    experience INT DEFAULT 0,
-    PRIMARY KEY (character_id, skill_name),
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- Ironwood quests
-CREATE TABLE IF NOT EXISTS ironwood_quests (
-    character_id INT NOT NULL,
-    quest_id VARCHAR(100) NOT NULL,
-    status ENUM('active', 'completed', 'failed') DEFAULT 'active',
-    progress JSON,
-    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP NULL,
-    PRIMARY KEY (character_id, quest_id),
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- Ironwood variables (quest flags, achievements, etc)
-CREATE TABLE IF NOT EXISTS ironwood_variables (
-    character_id INT NOT NULL,
-    var_name VARCHAR(100) NOT NULL,
-    var_value VARCHAR(255),
-    PRIMARY KEY (character_id, var_name),
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- ==================================
--- Tile Game specific tables
--- ==================================
-
--- Tile game character stats
-CREATE TABLE IF NOT EXISTS demo_game_stats (
-    character_id INT PRIMARY KEY,
-    hp INT DEFAULT 100,
-    max_hp INT DEFAULT 100,
-    mp INT DEFAULT 50,
-    max_mp INT DEFAULT 50,
-    strength INT DEFAULT 10,
-    dexterity INT DEFAULT 10,
-    intelligence INT DEFAULT 10,
-    defense INT DEFAULT 10,
-    agility INT DEFAULT 10,
-    experience INT DEFAULT 0,
-    gold INT DEFAULT 0,
-    current_map VARCHAR(100) DEFAULT 'tutorial_island',
-    position_x FLOAT DEFAULT 100,
-    position_y FLOAT DEFAULT 100,
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- Tile game inventory
-CREATE TABLE IF NOT EXISTS demo_game_inventory (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    character_id INT NOT NULL,
-    item_id VARCHAR(100) NOT NULL,
-    quantity INT DEFAULT 1,
-    slot_index INT,
-    equipped BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-    INDEX idx_character (character_id)
-) ENGINE=InnoDB;
-
--- Tile game skills/abilities
-CREATE TABLE IF NOT EXISTS demo_game_abilities (
-    character_id INT NOT NULL,
-    ability_id VARCHAR(100) NOT NULL,
-    level INT DEFAULT 1,
-    cooldown_until TIMESTAMP NULL,
-    slot_number INT,
-    PRIMARY KEY (character_id, ability_id),
     FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -213,11 +99,46 @@ CREATE TABLE IF NOT EXISTS audit_log (
     INDEX idx_created (created_at)
 ) ENGINE=InnoDB;
 
+-- ==================================
+-- Core game systems (reusable)
+-- ==================================
+
+CREATE TABLE IF NOT EXISTS character_skills (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    character_id INT NOT NULL,
+    skill_name VARCHAR(50) NOT NULL,
+    level INT DEFAULT 0,
+    experience INT DEFAULT 0,
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_character_skill (character_id, skill_name),
+    INDEX idx_character (character_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS character_quests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    character_id INT NOT NULL,
+    quest_id VARCHAR(100) NOT NULL,
+    status ENUM('active', 'completed', 'failed') DEFAULT 'active',
+    progress JSON,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_character_quest (character_id, quest_id),
+    INDEX idx_character (character_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS character_vars (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    character_id INT NOT NULL,
+    var_name VARCHAR(100) NOT NULL,
+    var_value TEXT,
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_character_var (character_id, var_name),
+    INDEX idx_character (character_id)
+) ENGINE=InnoDB;
+
 -- Create default admin account (password: admin123 - CHANGE THIS!)
-INSERT INTO accounts (username, email, password_hash, status) 
+INSERT INTO accounts (username, email, password_hash, status)
 VALUES ('admin', 'admin@wyrt.local', '$2b$10$YourHashHere', 'active')
 ON DUPLICATE KEY UPDATE username=username;
-
--- Grant privileges (adjust as needed)
--- GRANT ALL PRIVILEGES ON wyrt.* TO 'wyrt_user'@'localhost' IDENTIFIED BY 'your_password';
--- FLUSH PRIVILEGES;
