@@ -1,36 +1,5 @@
 /**
- * WYRT TEAMS MODULE
- *
- * Generic team management system for multiplayer games.
- *
- * PROVIDES:
- * - TeamManager class (accessible via context)
- * - Team creation and removal
- * - Player assignment with multiple strategies
- * - Team-based queries (friendly, enemy, teammates)
- * - Team statistics and scoring
- *
- * USAGE IN OTHER MODULES:
- * ```typescript
- * const teamManager = context.getModule('wyrt_teams').getTeamManager();
- *
- * // Create teams
- * teamManager.createTeam({ id: 'red', name: 'Red Team', color: '#FF0000' });
- *
- * // Assign players
- * const teamId = teamManager.assignPlayer(playerId, { mode: 'auto-balance' });
- *
- * // Check relationships
- * if (teamManager.isFriendly(player1, player2)) {
- *     // Same team
- * }
- * ```
- *
- * EVENTS:
- * - wyrt:teamCreated
- * - wyrt:teamRemoved
- * - wyrt:playerAssigned
- * - wyrt:playerRemoved
+ * Team management with auto-balancing and player assignment strategies.
  */
 
 import { IModule, ModuleContext } from '../../src/module/IModule';
@@ -43,17 +12,10 @@ export default class WyrtTeamsModule implements IModule {
     dependencies = [];
 
     private context?: ModuleContext;
-    private teamManager?: TeamManager;
+    private teamManagers: Map<string, TeamManager> = new Map();
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
-
-        // Create team manager
-        this.teamManager = new TeamManager(context);
-
-        // Store globally for easy access
-        (globalThis as any).wyrtTeamManager = this.teamManager;
-
         console.log(`[${this.name}] Initialized`);
     }
 
@@ -63,20 +25,43 @@ export default class WyrtTeamsModule implements IModule {
     }
 
     async deactivate(): Promise<void> {
-        delete (globalThis as any).wyrtTeamManager;
+        this.teamManagers.clear();
         console.log(`[${this.name}] Module deactivated`);
     }
 
     /**
-     * Get the team manager instance
+     * Create a new team manager for a specific game
      *
-     * This allows other modules to access the team manager via:
-     * context.getModule('wyrt_teams').getTeamManager()
+     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'ctf')
+     * @returns The created team manager
      */
-    getTeamManager(): TeamManager {
-        if (!this.teamManager) {
-            throw new Error('TeamManager not initialized');
+    createTeamManager(gameId: string): TeamManager {
+        if (this.teamManagers.has(gameId)) {
+            throw new Error(`TeamManager for game '${gameId}' already exists`);
         }
-        return this.teamManager;
+
+        if (!this.context) {
+            throw new Error('Module not initialized');
+        }
+
+        const manager = new TeamManager(this.context);
+        this.teamManagers.set(gameId, manager);
+
+        console.log(`[${this.name}] Created team manager for game: ${gameId}`);
+        return manager;
+    }
+
+    /**
+     * Get a team manager for a specific game
+     *
+     * @param gameId - Unique identifier for the game
+     * @returns The team manager for that game
+     */
+    getTeamManager(gameId: string): TeamManager {
+        const manager = this.teamManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`TeamManager for game '${gameId}' not found. Did you call createTeamManager()?`);
+        }
+        return manager;
     }
 }

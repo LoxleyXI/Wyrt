@@ -1,38 +1,5 @@
 /**
- * wyrt_respawn Module
- *
- * Generic respawn system for multiplayer games
- *
- * Features:
- * - Respawn timers and countdown
- * - Spawn point selection (random, sequential, round-robin)
- * - Death state management
- * - Respawn callbacks for game-specific logic
- * - Support for team-based or group-based spawning
- *
- * Usage:
- * ```typescript
- * const respawn = context.getModule('wyrt_respawn').getRespawnManager();
- *
- * // Register spawn points for a team
- * respawn.registerSpawnPoints('red', {
- *   spawnPoints: [{ x: 100, y: 100 }, { x: 120, y: 100 }],
- *   selectionMode: 'random'
- * });
- *
- * // Mark player as dead
- * const respawnAt = respawn.markDead(playerId);
- * player.respawning = true;
- * player.respawnAt = respawnAt;
- *
- * // In game loop, check for respawn
- * if (respawn.shouldRespawn(player.respawnAt)) {
- *   const spawnPos = respawn.respawn(playerId, player.team);
- *   player.position = spawnPos;
- *   player.respawning = false;
- *   player.respawnAt = null;
- * }
- * ```
+ * Respawn system with configurable timers and spawn point selection.
  */
 
 import { IModule, ModuleContext } from '../../src/module/IModule.js';
@@ -45,17 +12,10 @@ export default class WyrtRespawnModule implements IModule {
     dependencies: string[] = [];
 
     private context?: ModuleContext;
-    private respawnManager!: RespawnManager;
+    private respawnManagers: Map<string, RespawnManager> = new Map();
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
-
-        // Create respawn manager with default 5-second respawn time
-        this.respawnManager = new RespawnManager({
-            respawnTime: 5000,
-            updateActivityOnRespawn: true
-        });
-
         console.log('[wyrt_respawn] Initialized');
     }
 
@@ -65,11 +25,32 @@ export default class WyrtRespawnModule implements IModule {
     }
 
     async deactivate(): Promise<void> {
-        this.respawnManager.clearSpawnConfigs();
+        for (const manager of this.respawnManagers.values()) {
+            manager.clearSpawnConfigs();
+        }
+        this.respawnManagers.clear();
         console.log('[wyrt_respawn] Module deactivated');
     }
 
-    getRespawnManager(): RespawnManager {
-        return this.respawnManager;
+    createRespawnManager(gameId: string, options?: { respawnTime?: number, updateActivityOnRespawn?: boolean }): RespawnManager {
+        if (this.respawnManagers.has(gameId)) {
+            throw new Error(`RespawnManager for game '${gameId}' already exists`);
+        }
+
+        const manager = new RespawnManager({
+            respawnTime: options?.respawnTime || 5000,
+            updateActivityOnRespawn: options?.updateActivityOnRespawn !== false
+        });
+        this.respawnManagers.set(gameId, manager);
+        console.log(`[wyrt_respawn] Created respawn manager for game: ${gameId}`);
+        return manager;
+    }
+
+    getRespawnManager(gameId: string): RespawnManager {
+        const manager = this.respawnManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`RespawnManager for game '${gameId}' not found. Did you call createRespawnManager()?`);
+        }
+        return manager;
     }
 }

@@ -1,34 +1,5 @@
 /**
- * WYRT PROJECTILES MODULE
- *
- * Generic projectile physics system for multiplayer games.
- *
- * PROVIDES:
- * - ProjectileManager class
- * - Velocity-based movement
- * - Collision detection
- * - Hit callbacks
- * - Event-driven architecture
- *
- * USAGE IN OTHER MODULES:
- * ```typescript
- * const projectileManager = context.getModule('wyrt_projectiles').getProjectileManager();
- *
- * // Fire projectile
- * projectileManager.fireProjectile({
- *     ownerId: player.id,
- *     position: player.position,
- *     velocity: { x: 300, y: 0 },
- *     onHit: (projectile, target) => {
- *         // Apply damage or effects
- *     }
- * });
- * ```
- *
- * EVENTS:
- * - wyrt:projectileFired
- * - wyrt:projectileHit
- * - wyrt:projectileExpired
+ * Projectile physics with velocity-based movement and collision detection.
  */
 
 import { IModule, ModuleContext } from '../../src/module/IModule';
@@ -41,17 +12,10 @@ export default class WyrtProjectilesModule implements IModule {
     dependencies = [];
 
     private context?: ModuleContext;
-    private projectileManager?: ProjectileManager;
+    private projectileManagers: Map<string, ProjectileManager> = new Map();
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
-
-        // Create projectile manager
-        this.projectileManager = new ProjectileManager(context);
-
-        // Store globally for easy access
-        (globalThis as any).wyrtProjectileManager = this.projectileManager;
-
         console.log(`[${this.name}] Initialized`);
     }
 
@@ -61,20 +25,48 @@ export default class WyrtProjectilesModule implements IModule {
     }
 
     async deactivate(): Promise<void> {
-        // Clean up all projectiles
-        this.projectileManager?.clearAll();
+        // Clean up all projectiles in all games
+        for (const manager of this.projectileManagers.values()) {
+            manager.clearAll();
+        }
 
-        delete (globalThis as any).wyrtProjectileManager;
+        this.projectileManagers.clear();
         console.log(`[${this.name}] Module deactivated`);
     }
 
     /**
-     * Get the projectile manager instance
+     * Create a new projectile manager for a specific game
+     *
+     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'ctf')
+     * @returns The created projectile manager
      */
-    getProjectileManager(): ProjectileManager {
-        if (!this.projectileManager) {
-            throw new Error('ProjectileManager not initialized');
+    createProjectileManager(gameId: string): ProjectileManager {
+        if (this.projectileManagers.has(gameId)) {
+            throw new Error(`ProjectileManager for game '${gameId}' already exists`);
         }
-        return this.projectileManager;
+
+        if (!this.context) {
+            throw new Error('Module not initialized');
+        }
+
+        const manager = new ProjectileManager(this.context);
+        this.projectileManagers.set(gameId, manager);
+
+        console.log(`[${this.name}] Created projectile manager for game: ${gameId}`);
+        return manager;
+    }
+
+    /**
+     * Get a projectile manager for a specific game
+     *
+     * @param gameId - Unique identifier for the game
+     * @returns The projectile manager for that game
+     */
+    getProjectileManager(gameId: string): ProjectileManager {
+        const manager = this.projectileManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`ProjectileManager for game '${gameId}' not found. Did you call createProjectileManager()?`);
+        }
+        return manager;
     }
 }

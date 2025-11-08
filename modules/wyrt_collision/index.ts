@@ -1,20 +1,5 @@
 /**
- * wyrt_collision Module
- *
- * Reusable collision detection system for multiplayer games
- *
- * Features:
- * - Circle-rectangle collision detection
- * - Circle-circle collision detection
- * - Wall sliding for smooth movement
- * - Collision layers for organized level design
- * - Detailed collision results for physics
- *
- * Usage:
- * ```typescript
- * const collision = context.getModule('wyrt_collision').collision;
- * const blocked = collision.isPositionInCollisionBlock(position, radius, walls);
- * ```
+ * Collision detection with circle/rectangle tests and wall sliding.
  */
 
 import { IModule, ModuleContext } from '../../src/module/IModule.js';
@@ -27,12 +12,10 @@ export default class WyrtCollisionModule implements IModule {
     dependencies: string[] = [];
 
     private context?: ModuleContext;
-    public collision!: CollisionManager;
+    private collisionManagers: Map<string, CollisionManager> = new Map();
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
-        this.collision = new CollisionManager();
-
         console.log('[wyrt_collision] Initialized');
     }
 
@@ -42,11 +25,29 @@ export default class WyrtCollisionModule implements IModule {
     }
 
     async deactivate(): Promise<void> {
-        this.collision.clearLayers();
+        for (const manager of this.collisionManagers.values()) {
+            manager.clearLayers();
+        }
+        this.collisionManagers.clear();
         console.log('[wyrt_collision] Module deactivated');
     }
 
-    getCollisionManager(): CollisionManager {
-        return this.collision;
+    createCollisionManager(gameId: string): CollisionManager {
+        if (this.collisionManagers.has(gameId)) {
+            throw new Error(`CollisionManager for game '${gameId}' already exists`);
+        }
+
+        const manager = new CollisionManager();
+        this.collisionManagers.set(gameId, manager);
+        console.log(`[wyrt_collision] Created collision manager for game: ${gameId}`);
+        return manager;
+    }
+
+    getCollisionManager(gameId: string): CollisionManager {
+        const manager = this.collisionManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`CollisionManager for game '${gameId}' not found. Did you call createCollisionManager()?`);
+        }
+        return manager;
     }
 }
