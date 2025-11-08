@@ -1,43 +1,5 @@
 /**
- * WYRT BUFFS MODULE
- *
- * Generic buff/debuff system for multiplayer games.
- *
- * PROVIDES:
- * - BuffManager class
- * - Temporary status effects
- * - Duration-based timers
- * - Stack management
- * - Apply/expire callbacks
- * - Event-driven architecture
- *
- * USAGE IN OTHER MODULES:
- * ```typescript
- * const buffManager = context.getModule('wyrt_buffs').getBuffManager();
- *
- * // Apply buff
- * buffManager.applyBuff(playerId, {
- *     type: 'speed',
- *     duration: 10000,
- *     modifiers: { moveSpeed: 1.5 },
- *     onApply: (targetId, buff) => {
- *         // Increase speed
- *     },
- *     onExpire: (targetId, buff) => {
- *         // Restore speed
- *     }
- * });
- *
- * // Check buff
- * if (buffManager.hasBuff(playerId, 'shield')) {
- *     // Player is shielded
- * }
- * ```
- *
- * EVENTS:
- * - wyrt:buffApplied
- * - wyrt:buffExpired
- * - wyrt:buffStacked
+ * Generic buff/debuff system with timers and event callbacks.
  */
 
 import { IModule, ModuleContext } from '../../src/module/IModule';
@@ -50,25 +12,19 @@ export default class WyrtBuffsModule implements IModule {
     dependencies = [];
 
     private context?: ModuleContext;
-    private buffManager?: BuffManager;
+    private buffManagers: Map<string, BuffManager> = new Map();
     private updateInterval?: NodeJS.Timeout;
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
-
-        // Create buff manager
-        this.buffManager = new BuffManager(context);
-
-        // Store globally for easy access
-        (globalThis as any).wyrtBuffManager = this.buffManager;
-
         console.log(`[${this.name}] Initialized`);
     }
 
     async activate(): Promise<void> {
-        // Start update loop (check expirations every second)
         this.updateInterval = setInterval(() => {
-            this.buffManager?.update();
+            for (const manager of this.buffManagers.values()) {
+                manager.update();
+            }
         }, 1000);
 
         console.log(`[${this.name}] Module activated`);
@@ -76,25 +32,39 @@ export default class WyrtBuffsModule implements IModule {
     }
 
     async deactivate(): Promise<void> {
-        // Stop update loop
         if (this.updateInterval) {
             clearInterval(this.updateInterval);
         }
 
-        // Cleanup buff manager
-        this.buffManager?.destroy();
+        for (const manager of this.buffManagers.values()) {
+            manager.destroy();
+        }
 
-        delete (globalThis as any).wyrtBuffManager;
+        this.buffManagers.clear();
         console.log(`[${this.name}] Module deactivated`);
     }
 
-    /**
-     * Get the buff manager instance
-     */
-    getBuffManager(): BuffManager {
-        if (!this.buffManager) {
-            throw new Error('BuffManager not initialized');
+    createBuffManager(gameId: string): BuffManager {
+        if (this.buffManagers.has(gameId)) {
+            throw new Error(`BuffManager for game '${gameId}' already exists`);
         }
-        return this.buffManager;
+
+        if (!this.context) {
+            throw new Error('Module not initialized');
+        }
+
+        const manager = new BuffManager(this.context);
+        this.buffManagers.set(gameId, manager);
+
+        console.log(`[${this.name}] Created buff manager for game: ${gameId}`);
+        return manager;
+    }
+
+    getBuffManager(gameId: string): BuffManager {
+        const manager = this.buffManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`BuffManager for game '${gameId}' not found. Did you call createBuffManager()?`);
+        }
+        return manager;
     }
 }
