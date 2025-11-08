@@ -41,7 +41,10 @@ export default {
                         id: m.id,
                         name: m.name,
                         level: m.level,
-                        position: m.position
+                        position: m.position,
+                        sprite: m.sprite,
+                        tint: m.tint,
+                        maxHp: m.maxHp
                     })),
                     players: room.players.filter(p => p.id !== player.id).map(p => ({
                         id: p.id,

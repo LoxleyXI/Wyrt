@@ -7,55 +7,73 @@ export default class RoomModule implements IModule {
     name = "rooms";
     version = "1.0.0";
     description = "Room system with support for text-based and 2D positioned gameplay";
-    
-    private roomManager!: RoomManager;
-    private entityManager!: EntityManager;
-    
+
+    private context?: ModuleContext;
+    private roomManagers: Map<string, RoomManager> = new Map();
+    private entityManagers: Map<string, EntityManager> = new Map();
+
     async initialize(context: ModuleContext) {
-        this.roomManager = new RoomManager(context);
-        this.entityManager = new EntityManager(context);
-
-        // Load room data
-        context.data.registerLoader("rooms", {
-            load: (data, filePath) => this.roomManager.loadRooms(filePath)
-        });
-
-        // Load NPC data
-        context.data.registerLoader("npcs", {
-            load: (data, filePath) => this.entityManager.loadNPCs(filePath)
-        });
-
-        // Load mob data
-        context.data.registerLoader("mobs", {
-            load: (data, filePath) => this.entityManager.loadMobs(filePath)
-        });
+        this.context = context;
+        console.log(`[${this.name}] Initialized`);
     }
 
-    // Public API for other modules
-    getRoomManager() {
-        return this.roomManager;
+    createRoomManager(gameId: string): RoomManager {
+        if (this.roomManagers.has(gameId)) {
+            throw new Error(`RoomManager for game '${gameId}' already exists`);
+        }
+        if (!this.context) {
+            throw new Error('Module not initialized');
+        }
+
+        const manager = new RoomManager(this.context);
+        this.roomManagers.set(gameId, manager);
+        console.log(`[${this.name}] Created room manager for game: ${gameId}`);
+        return manager;
     }
 
-    getEntityManager() {
-        return this.entityManager;
+    getRoomManager(gameId: string): RoomManager {
+        const manager = this.roomManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`RoomManager for game '${gameId}' not found. Did you call createRoomManager()?`);
+        }
+        return manager;
+    }
+
+    createEntityManager(gameId: string): EntityManager {
+        if (this.entityManagers.has(gameId)) {
+            throw new Error(`EntityManager for game '${gameId}' already exists`);
+        }
+        if (!this.context) {
+            throw new Error('Module not initialized');
+        }
+
+        const manager = new EntityManager(this.context);
+        this.entityManagers.set(gameId, manager);
+        console.log(`[${this.name}] Created entity manager for game: ${gameId}`);
+        return manager;
+    }
+
+    getEntityManager(gameId: string): EntityManager {
+        const manager = this.entityManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`EntityManager for game '${gameId}' not found. Did you call createEntityManager()?`);
+        }
+        return manager;
     }
     
     async activate(context: ModuleContext) {
-        // Commands and requests are loaded automatically by ModuleManager
-
-        // Setup event listeners
-        context.events.on("playerConnect", (player) => {
-            this.roomManager.handlePlayerConnect(player);
-        });
-
-        context.events.on("playerDisconnect", (player) => {
-            this.roomManager.handlePlayerDisconnect(player);
-        });
+        console.log(`[${this.name}] Module activated`);
     }
-    
+
     async deactivate(context: ModuleContext) {
-        // Cleanup
-        this.roomManager.cleanup();
-        this.entityManager.cleanup();
+        for (const manager of this.roomManagers.values()) {
+            manager.cleanup();
+        }
+        for (const manager of this.entityManagers.values()) {
+            manager.cleanup();
+        }
+        this.roomManagers.clear();
+        this.entityManagers.clear();
+        console.log(`[${this.name}] Module deactivated`);
     }
 }
