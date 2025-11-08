@@ -1,21 +1,5 @@
 /**
- * WYRT PICKUPS MODULE - TYPE DEFINITIONS
- *
- * Generic item pickup/spawn system for multiplayer games.
- *
- * FEATURES:
- * - Spawn items at fixed locations
- * - Proximity-based pickup detection
- * - Respawn timers
- * - Event-driven (games listen to pickup events)
- *
- * USE CASES:
- * - Health packs
- * - Ammo boxes
- * - Weapons
- * - Power-ups
- * - Collectibles
- * - CTF flags (technically!)
+ * Type definitions for the pickup system.
  */
 
 /**
@@ -38,6 +22,7 @@ export interface PickupConfig {
     id: string;
     itemType: ItemType;
     position: Position;
+    roomId?: string;           // Optional room identifier (e.g., "zone:room")
     respawnTime: number;      // Milliseconds (0 = never respawns)
     pickupRange?: number;      // Detection radius (default: 32)
     persistent?: boolean;      // If true, doesn't despawn on pickup
