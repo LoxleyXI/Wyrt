@@ -1,0 +1,9 @@
+{
+    "name": "wyrt_loot",
+    "version": "0.0.1",
+    "description": "Dropped item management with player instancing for Wyrt MMO engine",
+    "main": "index.ts",
+    "type": "module",
+    "author": "Loxley Games",
+    "license": "GPL-3.0"
+}
