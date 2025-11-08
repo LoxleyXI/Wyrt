@@ -1,0 +1,9 @@
+{
+    "name": "wyrt_inventory",
+    "version": "0.0.1",
+    "description": "Generic inventory management system for Wyrt MMO engine",
+    "main": "index.ts",
+    "type": "module",
+    "author": "Loxley Games",
+    "license": "GPL-3.0"
+}

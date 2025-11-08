@@ -26,6 +26,7 @@ import SHA2 from "sha2";
 import https from "https";
 import yaml from "js-yaml";
 import mysql from "mysql";
+import mysql2 from "mysql2/promise";
 import { EventEmitter } from "events";
 
 // Types
@@ -78,6 +79,7 @@ const requestTypes = new ModuleRequestTypes();
 // Database connection
 //----------------------------------
 let connection: Connection;
+let db: any; // mysql2/promise connection
 
 if (!config.server.options.nodb) {
     connection = mysql.createConnection(config.server.db);
@@ -86,6 +88,10 @@ if (!config.server.options.nodb) {
         connection.connect();
         console.log(`=== Database connected ===`);
     }
+
+    // Also create mysql2/promise connection for modules that use async/await
+    db = await mysql2.createConnection(config.server.db);
+    console.log(`=== Database (mysql2/promise) connected ===`);
 }
 
 //----------------------------------
@@ -97,6 +103,7 @@ const characterSelectHooks = new Map<string, CharacterSelectHook>();
 
 const moduleContext: ModuleContext = {
     connection,
+    db,
     data,
     commands,
     requestTypes,

@@ -31,6 +31,7 @@ import { CharacterCreateHook, CharacterSelectHook } from "../types/Hooks.js";
 
 export interface ModuleContext {
     connection: Connection;
+    db: any; // mysql2/promise connection
     data: Data;
     commands: ModuleCommands;
     requestTypes: ModuleRequestTypes;

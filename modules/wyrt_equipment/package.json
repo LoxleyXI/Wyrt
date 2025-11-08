@@ -1,0 +1,9 @@
+{
+    "name": "wyrt_equipment",
+    "version": "0.0.1",
+    "description": "Generic equipment system with stat aggregation for Wyrt MMO engine",
+    "main": "index.ts",
+    "type": "module",
+    "author": "Loxley Games",
+    "license": "GPL-3.0"
+}
