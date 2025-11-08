@@ -1,16 +1,5 @@
 /**
- * Generic Mob Manager
- *
- * Manages NPC/enemy lifecycle for any Wyrt game:
- * - Spawning and respawning
- * - Health and combat state
- * - AI (roaming, chasing, aggro)
- * - Position tracking
- * - Health regeneration
- *
- * Game modules provide:
- * - Mob templates (via constructor)
- * - Event callbacks for broadcasting
+ * Generic NPC/enemy manager with spawning, AI, and health systems.
  */
 
 import { ModuleContext } from '../../../src/module/ModuleContext';
@@ -193,7 +182,9 @@ export class MobManager {
             target: null,
             lastCombatTime: 0,
             position,
-            direction: "down"
+            direction: "down",
+            sprite: template.sprite, // Copy sprite data from template
+            tint: template.tint // Copy tint if specified
         };
 
         this.mobInstances.set(instanceId, instance);

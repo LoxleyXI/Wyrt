@@ -1,8 +1,5 @@
 /**
- * CTF Game Manager
- *
- * Main game loop and state management for Capture the Flag.
- * Coordinates subsystems and handles match lifecycle.
+ * CTF game loop and state management.
  */
 
 import { CTFGameState, CTFPlayer, MapConfig, Team, Position, Direction } from '../types/CTFTypes';
@@ -69,11 +66,11 @@ export class CTFGameManager {
         };
 
         // Get core module managers
-        this.teams = context.getModule('wyrt_teams').getTeamManager();
-        this.pickups = context.getModule('wyrt_pickups').getPickupManager();
-        this.projectiles = context.getModule('wyrt_projectiles').getProjectileManager();
-        this.buffs = context.getModule('wyrt_buffs').getBuffManager();
-        this.respawn = context.getModule('wyrt_respawn').getRespawnManager();
+        this.teams = context.getModule('wyrt_teams').createTeamManager('ctf');
+        this.pickups = context.getModule('wyrt_pickups').createPickupManager('ctf');
+        this.projectiles = context.getModule('wyrt_projectiles').createProjectileManager('ctf');
+        this.buffs = context.getModule('wyrt_buffs').createBuffManager('ctf');
+        this.respawn = context.getModule('wyrt_respawn').createRespawnManager('ctf');
 
         // Initialize CTF-specific systems
         this.flagManager = new FlagManager(this.gameState.flags, this.gameState.scores);
