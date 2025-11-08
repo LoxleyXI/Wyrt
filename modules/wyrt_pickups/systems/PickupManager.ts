@@ -1,43 +1,6 @@
 /**
- * PICKUP MANAGER - Generic Item Pickup System
- *
- * A reusable system for items that can be picked up from the world.
- *
- * FEATURES:
- * - Register spawn points for items
- * - Proximity-based pickup detection
- * - Auto-respawn with configurable timers
- * - Event-driven (emits events, games handle effects)
- * - Support for persistent items (don't despawn) and limited-use items
- *
- * USAGE EXAMPLE:
- * ```typescript
- * const pickupManager = new PickupManager(context);
- *
- * // Register a health pack spawn
- * pickupManager.registerPickup({
- *     id: 'health_1',
- *     itemType: 'health_pack',
- *     position: { x: 200, y: 300 },
- *     respawnTime: 30000  // 30 seconds
- * });
- *
- * // Check for pickups near player
- * pickupManager.checkPickups({ x: 210, y: 310 }, 'player_123');
- * ```
- *
- * EVENTS EMITTED:
- * - wyrt:itemPickedUp { pickupId, itemType, playerId, position }
- * - wyrt:itemRespawned { pickupId, itemType, position }
- *
- * Games listen to these events and implement their own logic:
- * ```typescript
- * context.events.on('wyrt:itemPickedUp', (data) => {
- *     if (data.itemType === 'health_pack') {
- *         player.health += 50;
- *     }
- * });
- * ```
+ * Generic item pickup system with proximity detection and auto-respawn.
+ * Emits events for games to implement pickup effects.
  */
 
 import { ModuleContext } from '../../../src/module/IModule';
@@ -263,6 +226,49 @@ export class PickupManager {
      */
     getPickupsByType(itemType: string): Pickup[] {
         return Array.from(this.pickups.values()).filter(p => p.itemType === itemType);
+    }
+
+    /**
+     * Get all available pickups in a specific room
+     *
+     * @param roomId - Room identifier (e.g., "zone:room")
+     * @returns Array of available pickups in that room
+     */
+    getPickupsInRoom(roomId: string): Pickup[] {
+        return Array.from(this.pickups.values()).filter(p => p.roomId === roomId && p.available);
+    }
+
+    /**
+     * Get all pickups in a specific room (available and unavailable)
+     *
+     * @param roomId - Room identifier (e.g., "zone:room")
+     * @returns Array of all pickups in that room
+     */
+    getAllPickupsInRoom(roomId: string): Pickup[] {
+        return Array.from(this.pickups.values()).filter(p => p.roomId === roomId);
+    }
+
+    /**
+     * Spawn a new pickup in a room
+     *
+     * @param itemType - Type of item to spawn
+     * @param roomId - Room identifier
+     * @param position - Position in the room
+     * @param quantity - Optional quantity (stored in itemType or custom data)
+     * @returns The created pickup
+     */
+    spawnPickup(itemType: string, roomId: string, position: Position, quantity?: number): Pickup {
+        // Generate unique ID for this pickup
+        const pickupId = `pickup_${roomId}_${itemType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        return this.registerPickup({
+            id: pickupId,
+            itemType: itemType,
+            roomId: roomId,
+            position: position,
+            respawnTime: 0, // One-time pickup by default
+            maxUses: 1
+        });
     }
 
     // ===== PRIVATE HELPER METHODS =====

@@ -1,42 +1,5 @@
 /**
- * WYRT PICKUPS MODULE
- *
- * Generic item pickup/spawn system for multiplayer games.
- *
- * PROVIDES:
- * - PickupManager class
- * - Spawn point registration
- * - Proximity-based pickup detection
- * - Auto-respawn system
- * - Event-driven architecture (games implement effects)
- *
- * USAGE IN OTHER MODULES:
- * ```typescript
- * const pickupManager = context.getModule('wyrt_pickups').getPickupManager();
- *
- * // Register spawn points
- * pickupManager.registerPickup({
- *     id: 'health_1',
- *     itemType: 'health_pack',
- *     position: { x: 200, y: 300 },
- *     respawnTime: 30000
- * });
- *
- * // Check pickups near player (in game loop or move handler)
- * pickupManager.checkPickups(player.position, player.id);
- *
- * // Listen for pickup events
- * context.events.on('wyrt:itemPickedUp', (data) => {
- *     // Implement game-specific logic
- *     if (data.itemType === 'health_pack') {
- *         player.health += 50;
- *     }
- * });
- * ```
- *
- * EVENTS:
- * - wyrt:itemPickedUp { pickupId, itemType, playerId, position }
- * - wyrt:itemRespawned { pickupId, itemType, position }
+ * Item pickup/spawn system with proximity detection and auto-respawn.
  */
 
 import { IModule, ModuleContext } from '../../src/module/IModule';
@@ -49,25 +12,20 @@ export default class WyrtPickupsModule implements IModule {
     dependencies = [];
 
     private context?: ModuleContext;
-    private pickupManager?: PickupManager;
+    private pickupManagers: Map<string, PickupManager> = new Map();
     private updateInterval?: NodeJS.Timeout;
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
-
-        // Create pickup manager
-        this.pickupManager = new PickupManager(context);
-
-        // Store globally for easy access
-        (globalThis as any).wyrtPickupManager = this.pickupManager;
-
         console.log(`[${this.name}] Initialized`);
     }
 
     async activate(): Promise<void> {
-        // Start update loop (check respawns every second)
+        // Start update loop (check respawns every second for ALL game-scoped managers)
         this.updateInterval = setInterval(() => {
-            this.pickupManager?.update();
+            for (const manager of this.pickupManagers.values()) {
+                manager.update();
+            }
         }, 1000);
 
         console.log(`[${this.name}] Module activated`);
@@ -80,17 +38,43 @@ export default class WyrtPickupsModule implements IModule {
             clearInterval(this.updateInterval);
         }
 
-        delete (globalThis as any).wyrtPickupManager;
+        this.pickupManagers.clear();
         console.log(`[${this.name}] Module deactivated`);
     }
 
     /**
-     * Get the pickup manager instance
+     * Create a new pickup manager for a specific game
+     *
+     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'ctf')
+     * @returns The created pickup manager
      */
-    getPickupManager(): PickupManager {
-        if (!this.pickupManager) {
-            throw new Error('PickupManager not initialized');
+    createPickupManager(gameId: string): PickupManager {
+        if (this.pickupManagers.has(gameId)) {
+            throw new Error(`PickupManager for game '${gameId}' already exists`);
         }
-        return this.pickupManager;
+
+        if (!this.context) {
+            throw new Error('Module not initialized');
+        }
+
+        const manager = new PickupManager(this.context);
+        this.pickupManagers.set(gameId, manager);
+
+        console.log(`[${this.name}] Created pickup manager for game: ${gameId}`);
+        return manager;
+    }
+
+    /**
+     * Get a pickup manager for a specific game
+     *
+     * @param gameId - Unique identifier for the game
+     * @returns The pickup manager for that game
+     */
+    getPickupManager(gameId: string): PickupManager {
+        const manager = this.pickupManagers.get(gameId);
+        if (!manager) {
+            throw new Error(`PickupManager for game '${gameId}' not found. Did you call createPickupManager()?`);
+        }
+        return manager;
     }
 }
