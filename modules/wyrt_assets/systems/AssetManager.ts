@@ -36,7 +36,6 @@ export class AssetManager {
         );
 
         if (!fs.existsSync(moduleAssetsPath)) {
-            this.context.logger.debug(`No assets directory for module: ${moduleName}`);
             return null;
         }
 
@@ -50,9 +49,12 @@ export class AssetManager {
         this.scanDirectory(moduleAssetsPath, moduleAssetsPath, manifest);
         this.manifests.set(moduleName, manifest);
 
-        this.context.logger.debug(
-            `Scanned ${manifest.assetCount} assets (${this.formatBytes(manifest.totalSize)}) for ${moduleName}`
-        );
+        // Only log if assets were found
+        if (manifest.assetCount > 0) {
+            this.context.logger.debug(
+                `Scanned ${manifest.assetCount} assets (${this.formatBytes(manifest.totalSize)}) for ${moduleName}`
+            );
+        }
 
         return manifest;
     }
