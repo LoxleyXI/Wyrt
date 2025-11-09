@@ -1,8 +1,6 @@
-// File: modules/core/requests/register.ts
 import { Request } from "../../../src/types/Request";
 import { User } from "../../../src/types/User";
 import { Data } from "../../../src/types/Data";
-import mysql from "mysql";
 
 const handler: Request = {
     cost: 10,
@@ -15,7 +13,7 @@ const handler: Request = {
             return;
         }
 
-        if (!context.connection) {
+        if (!context.db) {
             u.error("Database not available");
             return;
         }
@@ -25,36 +23,52 @@ const handler: Request = {
             return;
         }
 
-        if (password.length < 4) {
-            u.error("Password must be at least 4 characters");
+        if (password.length < 6) {
+            u.error("Password must be at least 6 characters");
             return;
         }
 
         try {
-            // Note: In real implementation, you'd hash the password with bcrypt
-            const query = "INSERT INTO chars (name, password, email) VALUES (?, ?, ?)";
+            // Check if username exists
+            const [existingUsers] = await context.db.query(
+                "SELECT id FROM accounts WHERE username = ?",
+                [username]
+            );
 
-            context.connection.query(query, [username, password, email || null], (error: any, results: any) => {
-                if (error) {
-                    if (error.code === "ER_DUP_ENTRY") {
-                        u.error("Username already exists");
-                    } else {
-                        console.error("Registration error:", error);
-                        u.error("Registration failed");
-                    }
-                    return;
-                }
+            if (existingUsers.length > 0) {
+                u.error("Username already taken");
+                return;
+            }
 
-                u.system(JSON.stringify({
-                    type: "registration_success",
-                    name: username,
-                    message: `Account successfully created: ${username}`
-                }));
+            // Hash password
+            const hashedPassword = await context.authManager.hashPassword(password);
 
-                console.log(`[Register] New account created: ${username}`);
+            // Create account
+            const [result] = await context.db.query(
+                "INSERT INTO accounts (username, email, password_hash) VALUES (?, ?, ?)",
+                [username, email || `${username}@example.com`, hashedPassword]
+            );
+
+            const userId = result.insertId;
+
+            // Generate token
+            const token = context.authManager.generateToken({
+                userId: userId,
+                username: username,
+                gmlv: 0
             });
-        } catch (error) {
-            console.error("Registration error:", error);
+
+            u.system(JSON.stringify({
+                type: "registration_success",
+                token: token,
+                userId: userId,
+                username: username,
+                message: `Account created successfully`
+            }));
+
+            context.logger.info(`[Register] New account created: ${username} (ID: ${userId})`);
+        } catch (error: any) {
+            context.logger.error("Registration error:", error);
             u.error("Registration failed");
         }
     }

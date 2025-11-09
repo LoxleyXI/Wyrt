@@ -12,13 +12,13 @@ export interface CharacterCreateData {
 export interface CharacterSelectData {
     user: any  // User object
     character: any  // Base character record from DB
-    connection: any
+    db: any  // mysql2/promise connection
     context: any
 }
 
 export type CharacterCreateHook = (
     data: CharacterCreateData,
-    connection: any
+    db: any  // mysql2/promise connection
 ) => Promise<void>
 
 export type CharacterSelectHook = (
@@ -28,6 +28,6 @@ export type CharacterSelectHook = (
 export interface ModuleHooks {
     onCharacterCreate?: CharacterCreateHook
     onCharacterSelect?: CharacterSelectHook
-    onCharacterDelete?: (characterId: number, connection: any) => Promise<void>
-    onCharacterLogin?: (characterId: number, connection: any) => Promise<void>
+    onCharacterDelete?: (characterId: number, db: any) => Promise<void>
+    onCharacterLogin?: (characterId: number, db: any) => Promise<void>
 }

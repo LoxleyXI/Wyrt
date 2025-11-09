@@ -86,36 +86,25 @@ export class HttpServer {
                     });
                 }
 
-                // Check if username exists in accounts table
-                const checkUserQuery = "SELECT id FROM accounts WHERE username = ?";
-                const existingUser: any = await new Promise((resolve, reject) => {
-                    this.context.connection.query(checkUserQuery, [username], (error, results: any) => {
-                        if (error) reject(error);
-                        else resolve(results[0]);
-                    });
-                });
+                const [existingUsers] = await this.context.db.query(
+                    "SELECT id FROM accounts WHERE username = ?",
+                    [username]
+                );
 
-                if (existingUser) {
-                    return res.status(409).json({ 
-                        success: false, 
-                        message: 'Username already taken' 
+                if (existingUsers.length > 0) {
+                    return res.status(409).json({
+                        success: false,
+                        message: 'Username already taken'
                     });
                 }
 
                 // Hash password
                 const hashedPassword = await this.context.authManager.hashPassword(password);
 
-                // Create account using new schema
-                const createAccountQuery = `INSERT INTO accounts 
-                    (username, email, password_hash) 
-                    VALUES (?, ?, ?)`;
-                
-                const result: any = await new Promise((resolve, reject) => {
-                    this.context.connection.query(createAccountQuery, [username, email || `${username}@example.com`, hashedPassword], (error, results) => {
-                        if (error) reject(error);
-                        else resolve(results);
-                    });
-                });
+                const [result] = await this.context.db.query(
+                    "INSERT INTO accounts (username, email, password_hash) VALUES (?, ?, ?)",
+                    [username, email || `${username}@example.com`, hashedPassword]
+                );
 
                 const userId = result.insertId;
 
@@ -159,35 +148,33 @@ export class HttpServer {
                     });
                 }
 
-                // Get account from accounts table
-                const getAccountQuery = "SELECT id, username, password_hash, status FROM accounts WHERE username = ?";
-                const account: any = await new Promise((resolve, reject) => {
-                    this.context.connection.query(getAccountQuery, [username], (error, results: any) => {
-                        if (error) reject(error);
-                        else resolve(results[0]);
-                    });
-                });
+                const [accounts] = await this.context.db.query(
+                    "SELECT id, username, password_hash, status FROM accounts WHERE username = ?",
+                    [username]
+                );
 
-                if (!account) {
-                    return res.status(401).json({ 
-                        success: false, 
-                        message: 'Invalid username or password' 
+                if (accounts.length === 0) {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Invalid username or password'
                     });
                 }
+
+                const account = accounts[0];
 
                 // Verify password
                 const passwordValid = await this.context.authManager.comparePassword(password, account.password_hash);
-                
+
                 if (!passwordValid) {
-                    return res.status(401).json({ 
-                        success: false, 
-                        message: 'Invalid username or password' 
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Invalid username or password'
                     });
                 }
 
-                // Update last login
-                const updateLoginQuery = "UPDATE accounts SET last_login = NOW() WHERE id = ?";
-                this.context.connection.query(updateLoginQuery, [account.id]);
+                // Update last login (fire and forget)
+                this.context.db.query("UPDATE accounts SET last_login = NOW() WHERE id = ?", [account.id])
+                    .catch(err => console.error("Failed to update last_login:", err));
 
                 // Generate token
                 const payload: AuthPayload = {
@@ -265,7 +252,6 @@ export class HttpServer {
                     ? `${moduleName}.${category}.${name}`
                     : `${moduleName}.${category}`;
 
-                // Get data from module's data store
                 const data = this.context.data[moduleName]?.[category];
 
                 if (!data) {
