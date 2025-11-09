@@ -1,0 +1,10 @@
+{
+  "name": "wyrt_skills",
+  "version": "1.0.0",
+  "description": "Generic skill progression system with quadratic XP scaling",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run"
+  }
+}
