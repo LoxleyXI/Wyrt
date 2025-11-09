@@ -1,0 +1,20 @@
+{
+  "name": "wyrt_resources",
+  "version": "1.0.0",
+  "description": "Generic resource node system with HP tracking, depletion mechanics, and respawn timers",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "wyrt",
+    "resources",
+    "gathering",
+    "nodes",
+    "depletion",
+    "respawn"
+  ],
+  "author": "",
+  "license": "GPL-3.0"
+}
