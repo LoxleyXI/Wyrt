@@ -179,11 +179,23 @@ export class SkillManager {
      * Get player's current level in a skill
      */
     async getPlayerSkillLevel(playerId: string, skillName: string): Promise<number> {
+        this.context.logger.debug(`[SkillManager] getPlayerSkillLevel called - playerId: ${playerId}, skill: ${skillName}`);
+
         const player = await this.getPlayer(playerId);
-        if (!player || !player.skills) return 0;
+
+        this.context.logger.debug(`[SkillManager] getPlayer result - found: ${!!player}, skills: ${player ? JSON.stringify(player.skills) : 'none'}`);
+
+        if (!player || !player.skills) {
+            this.context.logger.debug(`[SkillManager] No player or skills found, returning 0`);
+            return 0;
+        }
 
         const xp = player.skills[skillName] || 0;
-        return this.getLevelFromXP(xp);
+        const level = this.getLevelFromXP(xp);
+
+        this.context.logger.debug(`[SkillManager] ${skillName}: ${xp} XP = Level ${level}`);
+
+        return level;
     }
 
     private async getPlayer(playerId: string): Promise<any> {
