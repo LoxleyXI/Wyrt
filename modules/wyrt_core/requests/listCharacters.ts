@@ -25,29 +25,23 @@ const handler: Request = {
 
             query += " ORDER BY last_played DESC";
 
-            context.connection.query(query, params, (error, results) => {
-                if (error) {
-                    console.error("Database error:", error);
-                    u.error("Failed to list characters");
-                    return;
-                }
+            const [results] = await context.db.query(query, params);
 
-                const characters = results.map(char => ({
-                    id: char.id,
-                    name: char.name,
-                    gameId: char.game_id,
-                    level: char.level,
-                    class: char.class,
-                    createdAt: char.created_at,
-                    lastPlayed: char.last_played
-                }));
+            const characters = results.map(char => ({
+                id: char.id,
+                name: char.name,
+                gameId: char.game_id,
+                level: char.level,
+                class: char.class,
+                createdAt: char.created_at,
+                lastPlayed: char.last_played
+            }));
 
-                // Send character list
-                u.system(JSON.stringify({
-                    type: "character_list",
-                    characters: characters
-                }));
-            });
+            // Send character list
+            u.system(JSON.stringify({
+                type: "character_list",
+                characters: characters
+            }));
         } catch (error) {
             console.error("List characters error:", error);
             u.error("Failed to list characters");

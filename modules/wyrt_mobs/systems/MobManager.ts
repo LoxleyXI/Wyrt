@@ -147,9 +147,9 @@ export class MobManager {
             level = template.level;
         }
 
-        // Calculate HP
-        const baseHp = template.baseHp || 10;
-        const hpPerLevel = template.hpPerLevel || 0;
+        // Calculate HP (baseHp = 3 for quick kills, +1 HP per level)
+        const baseHp = template.baseHp || 3;
+        const hpPerLevel = template.hpPerLevel || 1;
         const maxHp = baseHp + (level - 1) * hpPerLevel;
 
         // Determine position
@@ -218,6 +218,19 @@ export class MobManager {
         mob.lastKilled = Date.now();
         mob.hp = 0;
 
+        // Broadcast mob death to all players in room BEFORE removing it
+        if (this.callbacks.onBroadcastToRoom) {
+            const roomPath = `${mob.zone}:${mob.room}`;
+            this.callbacks.onBroadcastToRoom(roomPath, {
+                type: 'mobDeath',
+                mob: {
+                    id: mob.id,
+                    name: mob.name,
+                    killerId: killerId
+                }
+            });
+        }
+
         // Remove from room
         const roomPath = `${mob.zone}:${mob.room}`;
         const roomMobSet = this.roomMobs.get(roomPath);
@@ -271,6 +284,23 @@ export class MobManager {
         this.roomMobs.get(roomPath)!.add(mobId);
 
         this.context.logger.debug(`[MobManager] ${mob.name} respawned in ${roomPath}`);
+
+        // Broadcast mob respawn to all players in room
+        if (this.callbacks.onBroadcastToRoom) {
+            this.callbacks.onBroadcastToRoom(roomPath, {
+                type: 'mobRespawn',
+                mob: {
+                    id: mob.id,
+                    name: mob.name,
+                    level: mob.level,
+                    hp: mob.hp,
+                    maxHp: mob.maxHp,
+                    position: mob.position,
+                    sprite: mob.sprite,
+                    tint: mob.tint
+                }
+            });
+        }
 
         // Callback
         if (this.callbacks.onMobRespawned) {

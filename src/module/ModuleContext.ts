@@ -18,7 +18,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
-import { Connection } from "mysql";
 import { EventEmitter } from "events";
 import { Data } from "../types/Data";
 import { ModuleCommands } from "./ModuleCommands";
@@ -30,7 +29,6 @@ import { WebManager } from "../server/WebManager";
 import { CharacterCreateHook, CharacterSelectHook } from "../types/Hooks.js";
 
 export interface ModuleContext {
-    connection: Connection;
     db: any; // mysql2/promise connection
     data: Data;
     commands: ModuleCommands;

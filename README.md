@@ -7,12 +7,14 @@ A TypeScript-based server framework for creating scalable multiplayer games with
 ## Features
 
 - **Modular Architecture**: Game systems as independent, reusable modules
-- **Hot Reload**: Modules auto-reload on file changes during development
+- **Unified Authentication**: JWT tokens + bcrypt hashing, shared across all games
 - **WebSocket API**: Real-time JSON communication on port 8080
+- **HTTP REST API**: Authentication and data endpoints on port 4040
+- **Database**: MariaDB/MySQL with mysql2/promise (async/await)
+- **Character Hooks**: Game-specific data tied to shared account system
 - **Integrated Web UIs**: Automatic Next.js/Vite frontend hosting via WebManager
-- **Authentication**: JWT-based auth with bcrypt password hashing
+- **Hot Reload**: Modules auto-reload on file changes during development
 - **Rate Limiting**: Token bucket algorithm for request throttling
-- **Database Support**: MariaDB/MySQL with connection pooling
 
 ## Module System
 
@@ -62,7 +64,21 @@ export default class MyGameModule implements IModule {
     dependencies = ['wyrt_core', 'wyrt_teams'];
 
     async initialize(context: ModuleContext): Promise<void> {
-        // Access database, events, commands, etc. via context
+        // Register character hooks for game-specific data
+        context.registerCharacterCreateHook('my_game', async (data, db) => {
+            await db.query(
+                "INSERT INTO my_game_stats (character_id, level, xp) VALUES (?, ?, ?)",
+                [data.characterId, 1, 0]
+            );
+        });
+
+        context.registerCharacterSelectHook('my_game', async ({user, character, db}) => {
+            const [stats] = await db.query(
+                "SELECT * FROM my_game_stats WHERE character_id = ?",
+                [character.id]
+            );
+            user.player.stats = stats[0];
+        });
     }
 
     async activate(): Promise<void> {
@@ -97,6 +113,28 @@ const handler: Request = {
 export default handler;
 ```
 
+## Authentication
+
+Wyrt provides unified authentication for all games:
+
+**HTTP Endpoints** (`/api/auth/*`):
+- `POST /api/auth/register` - Create account (bcrypt hashed)
+- `POST /api/auth/login` - Get JWT token
+- `GET /api/auth/verify` - Validate token
+
+**WebSocket Handlers** (`wyrt_core/requests/*`):
+- `auth` - Authenticate with JWT token
+- `createCharacter` - Create game character (requires auth)
+- `listCharacters` - List player's characters
+- `selectCharacter` - Load character (triggers game hooks)
+
+**Database Schema**:
+- `accounts` - Shared across all games (username, password_hash, email)
+- `characters` - Per-game characters (linked by account_id, game_id)
+- `{game}_stats` - Game-specific data (linked by character_id)
+
+See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for complete implementation guide.
+
 ## WebManager
 
 Automatically discovers and serves module frontends:
@@ -127,6 +165,7 @@ Automatically discovers and serves module frontends:
 4. **Access Interfaces**
    - Admin Panel: http://localhost:8000
    - CTF Demo: http://localhost:8001
+   - HTTP API: http://localhost:4040
    - WebSocket: ws://localhost:8080
 
 ## Demo: Capture the Flag

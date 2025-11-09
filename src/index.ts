@@ -25,7 +25,6 @@ import fs from "fs";
 import SHA2 from "sha2";
 import https from "https";
 import yaml from "js-yaml";
-import mysql from "mysql";
 import mysql2 from "mysql2/promise";
 import { EventEmitter } from "events";
 
@@ -49,7 +48,6 @@ import { WebManager } from "./server/WebManager";
 
 // Systems
 import server from "../config/server.json";
-import { Connection } from "mysql";
 
 //----------------------------------
 // Data containers
@@ -78,18 +76,10 @@ const requestTypes = new ModuleRequestTypes();
 //----------------------------------
 // Database connection
 //----------------------------------
-let connection: Connection;
 let db: any; // mysql2/promise connection
 
 if (!config.server.options.nodb) {
-    connection = mysql.createConnection(config.server.db);
-
-    if (!config.server.nodb) {
-        connection.connect();
-        console.log(`=== Database connected ===`);
-    }
-
-    // Also create mysql2/promise connection for modules that use async/await
+    // Create mysql2/promise connection for async/await
     db = await mysql2.createConnection(config.server.db);
     console.log(`=== Database (mysql2/promise) connected ===`);
 }
@@ -102,7 +92,6 @@ const characterCreateHooks = new Map<string, CharacterCreateHook>();
 const characterSelectHooks = new Map<string, CharacterSelectHook>();
 
 const moduleContext: ModuleContext = {
-    connection,
     db,
     data,
     commands,
@@ -203,13 +192,7 @@ function onReceived(u: User, input: string) {
             return;
         }
 
-        // Emit event for modules
         events.emit('requestReceived', u, request);
-
-        // Log request (in dev mode) - disabled to reduce spam
-        // if (config.server.options.dev) {
-        //     logger.debug(`${userId} -> ${request.type} (cost: ${handler.cost})`);
-        // }
 
         // Execute handler
         Promise.resolve(handler.exec(u, data, request, moduleContext))
@@ -264,8 +247,7 @@ function onConnection(wss: WebSocketServer) {
 
         ws.on("close", function() {
             logger.info(`Disconnection: ${clientIP} (ID: ${u.id})`);
-            
-            // Emit events for modules
+
             if (u.player.authenticated) {
                 events.emit('playerLogout', u);
                 logger.info(`Player ${u.player.name} disconnected`);
@@ -350,8 +332,8 @@ function serverClose() {
 
     moduleManager.stopFileWatchers();
 
-    if (connection) {
-        connection.end();
+    if (db) {
+        db.end();
     }
 
     process.exit(0);
