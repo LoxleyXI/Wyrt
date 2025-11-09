@@ -139,7 +139,8 @@ export class SkillManager {
     }
 
     /**
-     * Calculate XP gain from performing an action
+     * Calculate XP gain from performing an action (awarded on node depletion)
+     * Uses square root scaling for balanced progression
      */
     calculateSkillup(playerXP: number, targetLevel: number, multiplier: number = 1): number | null {
         const playerLevel = this.getLevelFromXP(playerXP);
@@ -149,22 +150,14 @@ export class SkillManager {
             return null;
         }
 
-        // Base XP gain: 5-15 XP per action
-        const baseXP = Math.ceil(Math.random() * 10) + 5;
+        // Square root scaling with ±15% randomness
+        // Level 1: 34-46 XP (avg 40) = ~8 nodes for level 1→2
+        // Level 5: 76-103 XP (avg 90) = ~12 nodes for level 5→6
+        // Level 10: 108-146 XP (avg 127) = ~17 nodes for level 10→11
+        const baseValue = Math.sqrt(targetLevel) * 40;
+        const randomVariation = 0.85 + Math.random() * 0.3; // ±15% variation
 
-        // Scale XP based on difficulty vs player level
-        const levelDiff = targetLevel - playerLevel;
-        let difficultyMultiplier = 1;
-
-        if (levelDiff > 0) {
-            // Activity is higher level - bonus XP
-            difficultyMultiplier = 1 + (levelDiff * 0.1);
-        } else if (levelDiff < -5) {
-            // Activity is much lower level - reduced XP
-            difficultyMultiplier = Math.max(0.1, 1 + (levelDiff * 0.1));
-        }
-
-        return Math.ceil(baseXP * difficultyMultiplier * multiplier);
+        return Math.ceil(baseValue * randomVariation * multiplier);
     }
 
     /**
@@ -179,23 +172,11 @@ export class SkillManager {
      * Get player's current level in a skill
      */
     async getPlayerSkillLevel(playerId: string, skillName: string): Promise<number> {
-        this.context.logger.debug(`[SkillManager] getPlayerSkillLevel called - playerId: ${playerId}, skill: ${skillName}`);
-
         const player = await this.getPlayer(playerId);
-
-        this.context.logger.debug(`[SkillManager] getPlayer result - found: ${!!player}, skills: ${player ? JSON.stringify(player.skills) : 'none'}`);
-
-        if (!player || !player.skills) {
-            this.context.logger.debug(`[SkillManager] No player or skills found, returning 0`);
-            return 0;
-        }
+        if (!player || !player.skills) return 0;
 
         const xp = player.skills[skillName] || 0;
-        const level = this.getLevelFromXP(xp);
-
-        this.context.logger.debug(`[SkillManager] ${skillName}: ${xp} XP = Level ${level}`);
-
-        return level;
+        return this.getLevelFromXP(xp);
     }
 
     private async getPlayer(playerId: string): Promise<any> {
