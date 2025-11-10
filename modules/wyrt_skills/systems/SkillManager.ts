@@ -15,19 +15,19 @@ export class SkillManager {
     }
 
     /**
-     * Calculate level from total XP using quadratic formula
-     * Formula: level = floor(sqrt(xp / BASE_XP))
+     * Calculate level from total XP using quadratic formula (starting at level 1)
+     * Formula: level = floor(sqrt(xp / BASE_XP)) + 1
      */
     getLevelFromXP(xp: number): number {
-        return Math.floor(Math.sqrt(xp / this.BASE_XP));
+        return Math.floor(Math.sqrt(xp / this.BASE_XP)) + 1;
     }
 
     /**
-     * Calculate XP required for a specific level
-     * Formula: xp = level^2 * BASE_XP
+     * Calculate XP required for a specific level (adjusted for level starting at 1)
+     * Formula: xp = (level - 1)^2 * BASE_XP
      */
     getXPForLevel(level: number): number {
-        return Math.pow(level, 2) * this.BASE_XP;
+        return Math.pow(level - 1, 2) * this.BASE_XP;
     }
 
     /**
@@ -173,7 +173,7 @@ export class SkillManager {
      */
     async getPlayerSkillLevel(playerId: string, skillName: string): Promise<number> {
         const player = await this.getPlayer(playerId);
-        if (!player || !player.skills) return 0;
+        if (!player || !player.skills) return 1; // Default to level 1
 
         const xp = player.skills[skillName] || 0;
         return this.getLevelFromXP(xp);

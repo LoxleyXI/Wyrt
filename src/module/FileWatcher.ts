@@ -69,7 +69,6 @@ export class FileWatcher extends EventEmitter {
         });
 
         this.watchers.set(dirPath, watcher);
-        this.logger.debug(`Watching directory: ${dirPath} (${dataType})`);
     }
 
     private findAndWatchFiles(dirPath: string, dataType: string, moduleName: string): void {

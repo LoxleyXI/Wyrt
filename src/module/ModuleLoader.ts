@@ -30,16 +30,14 @@ export class ModuleLoader {
     }
 
     public static loadDir(obj: ModuleData, dataType: string, dirPath: string) {
-        console.log(`= data.${dataType} =`);
-
         if (!fs.existsSync(dirPath)) {
-            console.log(`Directory ${dirPath} does not exist`);
-
+            console.log(`✗ ${dataType}: directory not found`);
             return;
         }
 
         const result = fs.readdirSync(dirPath, { recursive: true });
         const str: string[] = [];
+        const errors: string[] = [];
 
         for (const filename of result) {
             const filePath = path.join(dirPath, filename.toString());
@@ -55,26 +53,27 @@ export class ModuleLoader {
                 const supportedExts = obj.getSupportedExtensions(dataType);
                 if (supportedExts.includes(fileExt)) {
                     try {
-                        console.log(`Loading ${filePath} with ${dataType} loader`);
-
                         if (moduleLoader.load(obj, filePath)) {
                             str.push(filename.toString().replace(fileExt, ''));
                         }
                     }
-
                     catch (error) {
-                        console.error(`Failed to load ${filename} with module loader:`, error);
+                        errors.push(`${filename}: ${error.message}`);
                     }
                 }
             }
         }
 
-        if (str.length > 0) {
-            console.log(`Loaded: ${str.join(', ')}`);
+        // Show errors if any
+        if (errors.length > 0) {
+            console.log(`✗ ${dataType}: ${errors.join(', ')}`);
         }
 
-        else {
-            console.log(`No files loaded for ${dataType}`);
+        // Show loaded files in one line
+        if (str.length > 0) {
+            console.log(`✓ ${dataType}: ${str.join(', ')}`);
+        } else if (errors.length === 0) {
+            console.log(`✓ ${dataType}: no files`);
         }
     }
 }
