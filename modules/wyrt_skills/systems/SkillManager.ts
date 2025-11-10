@@ -32,7 +32,7 @@ export class SkillManager {
 
     /**
      * Calculate progress to next level (0-100%)
-     */
+     */ 
     getProgressToNextLevel(xp: number): number {
         const currentLevel = this.getLevelFromXP(xp);
         const currentLevelXP = this.getXPForLevel(currentLevel);

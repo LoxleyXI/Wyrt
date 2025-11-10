@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_crafting",
+  "version": "1.0.0",
+  "description": "Generic crafting system for Wyrt engine",
+  "type": "module",
+  "main": "index.ts",
+  "author": "Wyrt Engine",
+  "license": "MIT"
+}
