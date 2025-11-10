@@ -28,7 +28,9 @@ const handler: Request = {
 
         // Check GM level in dev mode (only if player exists)
         const config = context?.config || (globalThis as any).config;
-        if (u.player && !config?.server?.options?.dev && command.gmlv && u.player.gmlv < command.gmlv) {
+        const devMode = config?.options?.dev || config?.server?.options?.dev; // Support both config formats
+
+        if (u.player && !devMode && command.gmlv && u.player.gmlv < command.gmlv) {
             u.error(`Insufficient privileges for command: ${name}`);
             return;
         }
@@ -40,7 +42,7 @@ const handler: Request = {
             return;
         }
 
-        command.exec(u, data, args || []);
+        command.exec(u, data, args || [], context);
     }
 };
 

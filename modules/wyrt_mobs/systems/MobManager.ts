@@ -26,7 +26,7 @@ export class MobManager {
             this.mobTemplates.set(id, { ...template, id });
         }
 
-        this.context.logger.info(`[MobManager] Loaded ${this.mobTemplates.size} mob templates`);
+        this.context.logger.info(`✓ Loaded ${this.mobTemplates.size} mob templates`);
     }
 
     /**
@@ -109,9 +109,8 @@ export class MobManager {
             }
         }
 
-        // Log all spawned mobs for this room
         if (spawnedMobs.length > 0) {
-            this.context.logger.debug(`[MobManager] ${roomPath}: ${spawnedMobs.join(', ')}`);
+            this.context.logger.info(`  ${roomPath}: ${spawnedMobs.join(', ')}`);
         }
     }
 
@@ -196,10 +195,6 @@ export class MobManager {
         }
         this.roomMobs.get(roomPath)!.add(instanceId);
 
-        if (!silent) {
-            this.context.logger.debug(`[MobManager] Spawned ${instance.name} (Lv${level}) in ${roomPath}`);
-        }
-
         // Callback
         if (this.callbacks.onMobSpawned) {
             this.callbacks.onMobSpawned(instance);
@@ -237,8 +232,6 @@ export class MobManager {
         if (roomMobSet) {
             roomMobSet.delete(mobId);
         }
-
-        this.context.logger.debug(`[MobManager] ${mob.name} killed, will respawn in ${mob.respawnTime}s`);
 
         // Callback
         if (this.callbacks.onMobKilled) {
@@ -282,8 +275,6 @@ export class MobManager {
             this.roomMobs.set(roomPath, new Set());
         }
         this.roomMobs.get(roomPath)!.add(mobId);
-
-        this.context.logger.debug(`[MobManager] ${mob.name} respawned in ${roomPath}`);
 
         // Broadcast mob respawn to all players in room
         if (this.callbacks.onBroadcastToRoom) {
@@ -352,8 +343,6 @@ export class MobManager {
         if (!mob.target) {
             mob.target = attackerId;
         }
-
-        this.context.logger.debug(`[MobManager] ${mob.name} took ${actualDamage} damage from ${attackerId} (${mob.hp}/${mob.maxHp})`);
 
         // Broadcast update
         this.broadcastMobUpdate(mob);
