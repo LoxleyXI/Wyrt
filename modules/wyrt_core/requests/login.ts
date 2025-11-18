@@ -14,17 +14,20 @@ const handler: Request = {
         }
 
         try {
-            const [results] = await context.db.query(
-                "SELECT id, username, password_hash, status FROM accounts WHERE username = ?",
-                [username]
-            );
+            const account = await context.prisma.accounts.findUnique({
+                where: { username: username },
+                select: {
+                    id: true,
+                    username: true,
+                    password_hash: true,
+                    status: true
+                }
+            });
 
-            if (results.length === 0) {
+            if (!account) {
                 u.error("Invalid credentials");
                 return;
             }
-
-            const account = results[0];
 
             // Check account status
             if (account.status !== 'active') {
@@ -46,17 +49,24 @@ const handler: Request = {
             });
 
             // Update last login (fire and forget)
-            context.db.query("UPDATE accounts SET last_login = NOW() WHERE id = ?", [account.id])
-                .catch(err => console.error("Failed to update last_login:", err));
+            context.prisma.accounts.update({
+                where: { id: account.id },
+                data: { last_login: new Date() }
+            }).catch(err => console.error("Failed to update last_login:", err));
 
             // Create session
             const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-            await context.db.query(
-                "INSERT INTO sessions (id, account_id, token, ip_address, expires_at) VALUES (?, ?, ?, ?, ?)",
-                [sessionId, account.id, token, u.clientIP || 'unknown', expiresAt]
-            );
+            await context.prisma.sessions.create({
+                data: {
+                    id: sessionId,
+                    account_id: account.id,
+                    token: token,
+                    ip_address: u.clientIP || 'unknown',
+                    expires_at: expiresAt
+                }
+            });
 
             u.account = {
                 id: account.id,

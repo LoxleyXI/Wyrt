@@ -13,11 +13,6 @@ const handler: Request = {
             return;
         }
 
-        if (!context.db) {
-            u.error("Database not available");
-            return;
-        }
-
         if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
             u.error("Username must be 3-20 characters and may only contain alphanumeric characters or underscores");
             return;
@@ -30,12 +25,12 @@ const handler: Request = {
 
         try {
             // Check if username exists
-            const [existingUsers] = await context.db.query(
-                "SELECT id FROM accounts WHERE username = ?",
-                [username]
-            );
+            const existingUser = await context.prisma.accounts.findUnique({
+                where: { username: username },
+                select: { id: true }
+            });
 
-            if (existingUsers.length > 0) {
+            if (existingUser) {
                 u.error("Username already taken");
                 return;
             }
@@ -44,12 +39,16 @@ const handler: Request = {
             const hashedPassword = await context.authManager.hashPassword(password);
 
             // Create account
-            const [result] = await context.db.query(
-                "INSERT INTO accounts (username, email, password_hash) VALUES (?, ?, ?)",
-                [username, email || `${username}@example.com`, hashedPassword]
-            );
+            const newAccount = await context.prisma.accounts.create({
+                data: {
+                    username: username,
+                    email: email || `${username}@example.com`,
+                    password_hash: hashedPassword
+                },
+                select: { id: true }
+            });
 
-            const userId = result.insertId;
+            const userId = newAccount.id;
 
             // Generate token
             const token = context.authManager.generateToken({
