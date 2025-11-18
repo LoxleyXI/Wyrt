@@ -14,18 +14,31 @@ const handler: Request = {
         }
 
         try {
-            let query = "SELECT * FROM characters WHERE account_id = ? AND deleted = FALSE";
-            let params = [u.account.id];
+            // Build where clause conditionally
+            const where: any = {
+                account_id: u.account.id,
+                deleted: false
+            };
 
-            // Filter by game if specified
             if (gameId) {
-                query += " AND game_id = ?";
-                params.push(gameId);
+                where.game_id = gameId;
             }
 
-            query += " ORDER BY last_played DESC";
-
-            const [results] = await context.db.query(query, params);
+            const results = await context.prisma.characters.findMany({
+                where: where,
+                orderBy: {
+                    last_played: 'desc'
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    game_id: true,
+                    level: true,
+                    class: true,
+                    created_at: true,
+                    last_played: true
+                }
+            });
 
             const characters = results.map(char => ({
                 id: char.id,

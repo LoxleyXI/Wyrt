@@ -20,17 +20,19 @@ const handler: Request = {
 
         try {
             // Verify character ownership
-            const [results] = await context.db.query(
-                "SELECT * FROM characters WHERE id = ? AND account_id = ? AND game_id = ? AND deleted = FALSE",
-                [characterId, u.account.id, gameId]
-            );
+            const character = await context.prisma.characters.findFirst({
+                where: {
+                    id: characterId,
+                    account_id: u.account.id,
+                    game_id: gameId,
+                    deleted: false
+                }
+            });
 
-            if (results.length === 0) {
+            if (!character) {
                 u.error("Character not found");
                 return;
             }
-
-            const character = results[0];
 
             // Game-specific character selection
             const hook = context.getCharacterSelectHook(gameId);
@@ -38,7 +40,7 @@ const handler: Request = {
                 hook({
                     user: u,
                     character,
-                    db: context.db,
+                    db: context.prisma,
                     context
                 }).catch(error => {
                     console.error(`Failed to load ${gameId} character:`, error);
