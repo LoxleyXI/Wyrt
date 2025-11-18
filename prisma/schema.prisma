@@ -1,0 +1,402 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model accounts {
+  id                                          Int              @id @default(autoincrement())
+  username                                    String           @unique(map: "username") @db.VarChar(50)
+  email                                       String           @unique(map: "email") @db.VarChar(255)
+  password_hash                               String           @db.VarChar(255)
+  created_at                                  DateTime         @default(now()) @db.Timestamp(0)
+  last_login                                  DateTime?        @db.Timestamp(0)
+  status                                      accounts_status? @default(active)
+  oauth_provider                              String?          @db.VarChar(50)
+  oauth_id                                    String?          @db.VarChar(255)
+  oauth_avatar                                String?          @db.VarChar(512)
+  characters                                  characters[]
+  chat_messages                               chat_messages[]
+  friends_friends_account_idToaccounts        friends[]        @relation("friends_account_idToaccounts")
+  friends_friends_friend_account_idToaccounts friends[]        @relation("friends_friend_account_idToaccounts")
+  sessions                                    sessions[]
+
+  @@index([email], map: "idx_email")
+  @@index([oauth_provider, oauth_id], map: "idx_oauth_lookup")
+  @@index([username], map: "idx_username")
+}
+
+model audit_log {
+  id         Int      @id @default(autoincrement())
+  account_id Int?
+  action     String   @db.VarChar(100)
+  details    String?  @db.LongText
+  ip_address String?  @db.VarChar(45)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([account_id], map: "idx_account")
+  @@index([action], map: "idx_action")
+  @@index([created_at], map: "idx_created")
+}
+
+model character_data {
+  character_id Int
+  data_key     String     @db.VarChar(100)
+  data_value   String?    @db.LongText
+  updated_at   DateTime   @default(now()) @db.Timestamp(0)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "character_data_ibfk_1")
+
+  @@id([character_id, data_key])
+}
+
+model characters {
+  id                        Int                         @id @default(autoincrement())
+  account_id                Int
+  game_id                   String                      @db.VarChar(50)
+  name                      String                      @db.VarChar(50)
+  level                     Int?                        @default(1)
+  class                     String?                     @db.VarChar(50)
+  created_at                DateTime                    @default(now()) @db.Timestamp(0)
+  last_played               DateTime?                   @db.Timestamp(0)
+  deleted                   Boolean?                    @default(false)
+  character_data            character_data[]
+  accounts                  accounts                    @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "characters_ibfk_1")
+  fyrnvale_character_quests fyrnvale_character_quests[]
+  fyrnvale_character_stats  fyrnvale_character_stats?
+  fyrnvale_dropped_loot     fyrnvale_dropped_loot[]
+  fyrnvale_equipment        fyrnvale_equipment?
+  fyrnvale_inventory        fyrnvale_inventory[]
+  fyrnvale_skills           fyrnvale_skills[]
+  fyrnvale_stats            fyrnvale_stats?
+  ironwood_inventory        ironwood_inventory[]
+  ironwood_quests           ironwood_quests[]
+  ironwood_skills           ironwood_skills[]
+  ironwood_stats            ironwood_stats?
+  ironwood_variables        ironwood_variables[]
+  tilegame_abilities        tilegame_abilities[]
+  tilegame_inventory        tilegame_inventory[]
+  tilegame_stats            tilegame_stats?
+
+  @@unique([name, game_id], map: "unique_char_name_game")
+  @@index([account_id, game_id], map: "idx_account_game")
+  @@index([name], map: "idx_name")
+}
+
+model chat_messages {
+  id                Int      @id @default(autoincrement())
+  sender_account_id Int
+  game_id           String?  @db.VarChar(50)
+  channel           String?  @default("general") @db.VarChar(50)
+  message           String?  @db.Text
+  sent_at           DateTime @default(now()) @db.Timestamp(0)
+  accounts          accounts @relation(fields: [sender_account_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "chat_messages_ibfk_1")
+
+  @@index([channel, sent_at], map: "idx_channel_time")
+  @@index([game_id], map: "idx_game")
+  @@index([sender_account_id], map: "sender_account_id")
+}
+
+model friends {
+  account_id                                   Int
+  friend_account_id                            Int
+  status                                       friends_status? @default(pending)
+  created_at                                   DateTime        @default(now()) @db.Timestamp(0)
+  accounts_friends_account_idToaccounts        accounts        @relation("friends_account_idToaccounts", fields: [account_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "friends_ibfk_1")
+  accounts_friends_friend_account_idToaccounts accounts        @relation("friends_friend_account_idToaccounts", fields: [friend_account_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "friends_ibfk_2")
+
+  @@id([account_id, friend_account_id])
+  @@index([friend_account_id], map: "idx_friend")
+}
+
+model fyrnvale_character_quests {
+  character_id       Int
+  quest_id           String                            @db.VarChar(100)
+  current_step       Int?                              @default(0)
+  status             fyrnvale_character_quests_status? @default(active)
+  objective_progress String?                           @db.LongText
+  accepted_at        DateTime                          @default(now()) @db.Timestamp(0)
+  completed_at       DateTime?                         @db.Timestamp(0)
+  last_completed     DateTime?                         @db.Timestamp(0)
+  completion_count   Int?                              @default(0)
+  custom             String?                           @db.LongText
+  characters         characters                        @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fyrnvale_character_quests_ibfk_1")
+
+  @@id([character_id, quest_id])
+  @@index([character_id], map: "idx_character")
+  @@index([last_completed], map: "idx_last_completed")
+  @@index([status], map: "idx_status")
+}
+
+model fyrnvale_character_stats {
+  character_id Int        @id
+  health       Int?       @default(100)
+  max_health   Int?       @default(100)
+  mana         Int?       @default(50)
+  max_mana     Int?       @default(50)
+  energy       Int?       @default(100)
+  max_energy   Int?       @default(100)
+  experience   Int?       @default(0)
+  gold         Int?       @default(10)
+  zone         String?    @default("Verdant_Heartlands.Greenmeadow_Village") @db.VarChar(100)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fyrnvale_character_stats_ibfk_1")
+}
+
+model fyrnvale_dropped_loot {
+  id           Int        @id @default(autoincrement())
+  character_id Int
+  zone         String     @db.VarChar(100)
+  item_id      String     @db.VarChar(100)
+  quantity     Int?       @default(1)
+  x            Float      @db.Float
+  y            Float      @db.Float
+  created_at   DateTime   @default(now()) @db.Timestamp(0)
+  expires_at   DateTime   @default(dbgenerated("(current_timestamp() + interval 5 minute)")) @db.Timestamp(0)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fyrnvale_dropped_loot_ibfk_1")
+
+  @@index([character_id, zone], map: "idx_character_zone")
+  @@index([expires_at], map: "idx_expiry")
+}
+
+model fyrnvale_equipment {
+  character_id Int        @id
+  head         String?    @db.VarChar(100)
+  chest        String?    @db.VarChar(100)
+  legs         String?    @db.VarChar(100)
+  feet         String?    @db.VarChar(100)
+  hands        String?    @db.VarChar(100)
+  neck         String?    @db.VarChar(100)
+  ring1        String?    @db.VarChar(100)
+  ring2        String?    @db.VarChar(100)
+  weapon       String?    @db.VarChar(100)
+  created_at   DateTime   @default(now()) @db.Timestamp(0)
+  updated_at   DateTime   @default(now()) @db.Timestamp(0)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fyrnvale_equipment_ibfk_1")
+}
+
+model fyrnvale_inventory {
+  id           Int        @id @default(autoincrement())
+  character_id Int
+  item_id      String     @db.VarChar(100)
+  quantity     Int?       @default(1)
+  equipped     Boolean?   @default(false)
+  slot         String?    @db.VarChar(50)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fyrnvale_inventory_ibfk_1")
+
+  @@index([character_id], map: "idx_character")
+  @@index([character_id], map: "idx_inventory_character")
+  @@index([item_id], map: "idx_inventory_item")
+  @@index([item_id], map: "idx_item")
+}
+
+model fyrnvale_skills {
+  character_id Int
+  skill_name   String     @db.VarChar(100)
+  level        Int?       @default(0)
+  experience   Int?       @default(0)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fyrnvale_skills_ibfk_1")
+
+  @@id([character_id, skill_name])
+}
+
+model fyrnvale_stats {
+  character_id Int        @id
+  hp           Int?       @default(100)
+  max_hp       Int?       @default(100)
+  mp           Int?       @default(50)
+  max_mp       Int?       @default(50)
+  strength     Int?       @default(10)
+  dexterity    Int?       @default(10)
+  intelligence Int?       @default(10)
+  wisdom       Int?       @default(10)
+  constitution Int?       @default(10)
+  defense      Int?       @default(10)
+  experience   Int?       @default(0)
+  gold         Int?       @default(10)
+  zone         String?    @default("sunlit_pastures") @db.VarChar(100)
+  room         String?    @default("meadow_entrance") @db.VarChar(100)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fyrnvale_stats_ibfk_1")
+}
+
+model ironwood_inventory {
+  id           Int        @id @default(autoincrement())
+  character_id Int
+  item_id      String     @db.VarChar(100)
+  quantity     Int?       @default(1)
+  equipped     Boolean?   @default(false)
+  slot         String?    @db.VarChar(50)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ironwood_inventory_ibfk_1")
+
+  @@index([character_id], map: "idx_character")
+  @@index([item_id], map: "idx_item")
+}
+
+model ironwood_quests {
+  character_id Int
+  quest_id     String                  @db.VarChar(100)
+  status       ironwood_quests_status? @default(active)
+  progress     String?                 @db.LongText
+  started_at   DateTime                @default(now()) @db.Timestamp(0)
+  completed_at DateTime?               @db.Timestamp(0)
+  characters   characters              @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ironwood_quests_ibfk_1")
+
+  @@id([character_id, quest_id])
+}
+
+model ironwood_skills {
+  character_id Int
+  skill_name   String     @db.VarChar(100)
+  level        Int?       @default(0)
+  experience   Int?       @default(0)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ironwood_skills_ibfk_1")
+
+  @@id([character_id, skill_name])
+}
+
+model ironwood_stats {
+  character_id Int        @id
+  hp           Int?       @default(100)
+  max_hp       Int?       @default(100)
+  mp           Int?       @default(50)
+  max_mp       Int?       @default(50)
+  strength     Int?       @default(10)
+  dexterity    Int?       @default(10)
+  intelligence Int?       @default(10)
+  defense      Int?       @default(10)
+  agility      Int?       @default(10)
+  experience   Int?       @default(0)
+  gold         Int?       @default(0)
+  zone         String?    @default("maiden_wood") @db.VarChar(100)
+  room         String?    @default("Green_Thicket") @db.VarChar(100)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ironwood_stats_ibfk_1")
+}
+
+model ironwood_variables {
+  character_id Int
+  var_name     String     @db.VarChar(100)
+  var_value    String?    @db.VarChar(255)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "ironwood_variables_ibfk_1")
+
+  @@id([character_id, var_name])
+}
+
+model sessions {
+  id         String   @id @db.VarChar(128)
+  account_id Int
+  token      String   @db.VarChar(512)
+  ip_address String?  @db.VarChar(45)
+  user_agent String?  @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  expires_at DateTime @default(dbgenerated("('0000-00-00 00:00:00')")) @db.Timestamp(0)
+  accounts   accounts @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "sessions_ibfk_1")
+
+  @@index([account_id], map: "idx_account")
+  @@index([expires_at], map: "idx_expires")
+  @@index([token], map: "idx_token")
+}
+
+model tilegame_abilities {
+  character_id   Int
+  ability_id     String     @db.VarChar(100)
+  level          Int?       @default(1)
+  cooldown_until DateTime?  @db.Timestamp(0)
+  slot_number    Int?
+  characters     characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "tilegame_abilities_ibfk_1")
+
+  @@id([character_id, ability_id])
+}
+
+model tilegame_inventory {
+  id           Int        @id @default(autoincrement())
+  character_id Int
+  item_id      String     @db.VarChar(100)
+  quantity     Int?       @default(1)
+  slot_index   Int?
+  equipped     Boolean?   @default(false)
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "tilegame_inventory_ibfk_1")
+
+  @@index([character_id], map: "idx_character")
+}
+
+model tilegame_stats {
+  character_id Int        @id
+  hp           Int?       @default(100)
+  max_hp       Int?       @default(100)
+  mp           Int?       @default(50)
+  max_mp       Int?       @default(50)
+  strength     Int?       @default(10)
+  dexterity    Int?       @default(10)
+  intelligence Int?       @default(10)
+  defense      Int?       @default(10)
+  agility      Int?       @default(10)
+  experience   Int?       @default(0)
+  gold         Int?       @default(0)
+  current_map  String?    @default("tutorial_island") @db.VarChar(100)
+  position_x   Float?     @default(100) @db.Float
+  position_y   Float?     @default(100) @db.Float
+  characters   characters @relation(fields: [character_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "tilegame_stats_ibfk_1")
+}
+
+model wyrt_character_vars {
+  character_id Int
+  var_key      String   @db.VarChar(255)
+  var_value    String?  @db.Text
+  updated_at   DateTime @default(now()) @db.Timestamp(0)
+
+  @@id([character_id, var_key])
+  @@index([character_id], map: "idx_character")
+  @@index([var_key], map: "idx_key")
+}
+
+model wyrt_quest_progress {
+  character_id       Int
+  quest_id           String                      @db.VarChar(255)
+  current_step       Int?                        @default(0)
+  status             wyrt_quest_progress_status? @default(active)
+  objective_progress String?                     @db.Text
+  accepted_at        DateTime                    @default(now()) @db.Timestamp(0)
+  completed_at       DateTime?                   @db.Timestamp(0)
+  last_completed     DateTime?                   @db.Timestamp(0)
+  completion_count   Int?                        @default(0)
+  custom             String?                     @db.Text
+
+  @@id([character_id, quest_id])
+  @@index([character_id], map: "idx_character")
+  @@index([status], map: "idx_status")
+}
+
+enum friends_status {
+  pending
+  accepted
+  blocked
+}
+
+enum ironwood_quests_status {
+  active
+  completed
+  failed
+}
+
+enum fyrnvale_character_quests_status {
+  available
+  active
+  completed
+  failed
+  abandoned
+}
+
+enum wyrt_quest_progress_status {
+  active
+  completed
+  abandoned
+}
+
+enum accounts_status {
+  active
+  suspended
+  banned
+}

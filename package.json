@@ -14,11 +14,13 @@
   "license": "ISC",
   "description": "An MMO Engine",
   "dependencies": {
+    "@prisma/client": "^6.19.0",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.10",
     "bcrypt": "^5.1.1",
     "colors": "^1.4.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "js-yaml": "^4.1.0",
@@ -26,10 +28,12 @@
     "mysql": "^2.18.1",
     "mysql2": "^3.14.1",
     "postgres": "^3.4.5",
+    "prisma": "^6.19.0",
     "sha2": "^1.0.2",
     "showdown": "^2.1.0",
     "typescript": "^5.8.3",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
