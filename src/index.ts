@@ -18,6 +18,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/
 //----------------------------------
+// Load environment variables from .env file
+import dotenv from 'dotenv';
+dotenv.config();
+
 // Third-party
 import net from "net";
 import { WebSocketServer } from "ws";
@@ -45,6 +49,8 @@ import { ModuleLoader } from "./module/ModuleLoader";
 import { ConsoleLogger } from "./server/ConsoleLogger";
 import { HttpServer } from "./server/HttpServer";
 import { WebManager } from "./server/WebManager";
+import { prisma } from "./lib/prisma.js";
+import { disconnectPrisma } from "./lib/prisma.js";
 
 // Systems
 import server from "../config/server.json";
@@ -92,6 +98,7 @@ const characterCreateHooks = new Map<string, CharacterCreateHook>();
 const characterSelectHooks = new Map<string, CharacterSelectHook>();
 
 const moduleContext: ModuleContext = {
+    prisma,
     db,
     data,
     commands,
@@ -168,14 +175,16 @@ function onReceived(u: User, input: string) {
             return;
         }
         
-        if (!requestTypes.handlers[request.type]) {
-            u.error(`Unknown request type: ${request.type}`);
-            logger.warn(`Unknown request type '${request.type}' from user ${u.id}`);
-            logger.debug(`Available handlers: ${Object.keys(requestTypes.handlers).join(', ')}`);
+        // Look up handler using gameId (if provided) and type
+        const gameId = request.gameId;
+        const handler = requestTypes.getHandler(gameId, request.type);
+
+        if (!handler) {
+            u.error(`Unknown request type: ${request.type}${gameId ? ` for game ${gameId}` : ''}`);
+            logger.warn(`Unknown request type '${request.type}'${gameId ? ` for game '${gameId}'` : ''} from user ${u.id}`);
+            logger.debug(`Available global handlers: ${Object.keys(requestTypes.handlers).join(', ')}`);
             return;
         }
-
-        const handler = requestTypes.handlers[request.type];
         const userId = u.player.authenticated ? u.player.charid?.toString() : u.id.toString();
 
         if (!rateLimiter.checkLimit(userId, handler.cost)) {
@@ -320,12 +329,14 @@ async function startServer() {
 //----------------------------------
 // Graceful shutdown
 //----------------------------------
-function serverClose() {
+async function serverClose() {
     logger.info("\n=== Server shutting down ===");
 
     // Shutdown module web applications first
     if (webManager) {
         webManager.shutdown();
+n    // Disconnect Prisma
+    await disconnectPrisma();
     }
 
     events.emit('serverShutdown');
