@@ -52,10 +52,10 @@ export class HttpServer {
     private setupRoutes(): void {
         // Health check
         this.app.get('/health', (req: Request, res: Response) => {
-            res.json({ 
-                status: 'ok', 
-                server: 'Wyrt/Ironwood',
-                timestamp: Date.now() 
+            res.json({
+                status: 'ok',
+                server: 'Wyrt/MyGame',
+                timestamp: Date.now()
             });
         });
 

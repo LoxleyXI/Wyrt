@@ -8,7 +8,7 @@ config/*
 # Module organization:
 # - Exclude all modules by default
 # - Include all wyrt_* framework modules
-# - Exclude developer game modules (ironwood, demo_game, etc.)
+# - Exclude developer game modules (my_game, demo_game, etc.)
 modules/*
 !modules/wyrt_*/
 
@@ -16,3 +16,8 @@ modules/*
 .env
 .env.local
 .env.*.local
+
+# Wyrt Cloud (private, not committed to open-source repo)
+wyrt-cloud/
+
+/src/generated/prisma
