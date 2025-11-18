@@ -1,0 +1,12 @@
+{
+  "name": "wyrt_quests",
+  "version": "1.0.0",
+  "description": "Generic quest system for Wyrt-based games",
+  "type": "module",
+  "main": "index.ts",
+  "author": "Loxley Games",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "yaml": "^2.3.4"
+  }
+}
