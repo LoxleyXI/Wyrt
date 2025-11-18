@@ -5,8 +5,8 @@
   "type": "module",
   "main": "index.ts",
   "keywords": ["wyrt", "oauth", "authentication", "discord", "google", "steam"],
-  "author": "",
-  "license": "ISC",
+  "author": "Loxley Games",
+  "license": "GPL-3.0",
   "dependencies": {
     "jsonwebtoken": "^9.0.2"
   },
