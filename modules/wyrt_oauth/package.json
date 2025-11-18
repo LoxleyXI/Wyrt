@@ -1,0 +1,16 @@
+{
+  "name": "wyrt_oauth",
+  "version": "1.0.0",
+  "description": "OAuth authentication module for Wyrt - supports Discord, Google, Steam, and other providers",
+  "type": "module",
+  "main": "index.ts",
+  "keywords": ["wyrt", "oauth", "authentication", "discord", "google", "steam"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.5"
+  }
+}

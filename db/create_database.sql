@@ -114,29 +114,36 @@ CREATE TABLE IF NOT EXISTS character_skills (
     INDEX idx_character (character_id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS character_quests (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+-- Generic character variables table for all Wyrt modules
+-- This table stores any character-specific data in a key-value format
+-- Used by quest system, achievements, settings, etc.
+CREATE TABLE IF NOT EXISTS wyrt_character_vars (
     character_id INT NOT NULL,
-    quest_id VARCHAR(100) NOT NULL,
-    status ENUM('active', 'completed', 'failed') DEFAULT 'active',
-    progress JSON,
-    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    var_key VARCHAR(255) NOT NULL,
+    var_value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (character_id, var_key),
+    INDEX idx_character (character_id),
+    INDEX idx_key (var_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Quest progress table for tracking character quest completion
+-- This is game-agnostic and used by wyrt_quests module
+CREATE TABLE IF NOT EXISTS wyrt_quest_progress (
+    character_id INT NOT NULL,
+    quest_id VARCHAR(255) NOT NULL,
+    current_step INT DEFAULT 0,
+    status ENUM('active', 'completed', 'abandoned') DEFAULT 'active',
+    objective_progress TEXT,  -- JSON
+    accepted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_character_quest (character_id, quest_id),
+    last_completed TIMESTAMP NULL,
+    completion_count INT DEFAULT 0,
+    custom TEXT,  -- JSON for game-specific data
+    PRIMARY KEY (character_id, quest_id),
     INDEX idx_character (character_id),
     INDEX idx_status (status)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS character_vars (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    character_id INT NOT NULL,
-    var_name VARCHAR(100) NOT NULL,
-    var_value TEXT,
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_character_var (character_id, var_name),
-    INDEX idx_character (character_id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create default admin account (password: admin123 - CHANGE THIS!)
 INSERT INTO accounts (username, email, password_hash, status)
