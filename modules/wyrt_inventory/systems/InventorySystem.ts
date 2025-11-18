@@ -1,5 +1,4 @@
 import { ModuleContext } from "../../../src/module/IModule";
-import mysql from "mysql2/promise";
 
 export interface InventoryItem {
     id: number;
@@ -67,10 +66,10 @@ export class InventorySystem {
                 const added = newQuantity - existing.quantity;
                 const remaining = quantity - added;
 
-                await this.context.db.execute(
-                    'UPDATE my_game_inventory SET quantity = ? WHERE id = ?',
-                    [newQuantity, existing.id]
-                );
+                await this.context.prisma.my_game_inventory.update({
+                    where: { id: existing.id },
+                    data: { quantity: newQuantity }
+                });
 
                 this.context.events.emit('inventory:itemAdded', {
                     characterId,
@@ -97,10 +96,15 @@ export class InventorySystem {
             }
 
             // Insert new item
-            await this.context.db.execute(
-                'INSERT INTO my_game_inventory (character_id, item_id, quantity, slot, equipped) VALUES (?, ?, ?, ?, FALSE)',
-                [characterId, itemId, quantity, slot]
-            );
+            await this.context.prisma.my_game_inventory.create({
+                data: {
+                    character_id: characterId,
+                    item_id: itemId,
+                    quantity: quantity,
+                    slot: slot !== null ? slot.toString() : null,
+                    equipped: false
+                }
+            });
 
             this.context.events.emit('inventory:itemAdded', {
                 characterId,
@@ -134,16 +138,15 @@ export class InventorySystem {
 
             if (item.quantity === quantity) {
                 // Remove entire stack
-                await this.context.db.execute(
-                    'DELETE FROM my_game_inventory WHERE id = ?',
-                    [item.id]
-                );
+                await this.context.prisma.my_game_inventory.delete({
+                    where: { id: item.id }
+                });
             } else {
                 // Decrease quantity
-                await this.context.db.execute(
-                    'UPDATE my_game_inventory SET quantity = quantity - ? WHERE id = ?',
-                    [quantity, item.id]
-                );
+                await this.context.prisma.my_game_inventory.update({
+                    where: { id: item.id },
+                    data: { quantity: item.quantity - quantity }
+                });
             }
 
             this.context.events.emit('inventory:itemRemoved', {
@@ -165,18 +168,18 @@ export class InventorySystem {
      */
     async getInventory(characterId: number): Promise<InventoryItem[]> {
         try {
-            const [rows] = await this.context.db.execute(
-                'SELECT * FROM my_game_inventory WHERE character_id = ? ORDER BY slot ASC',
-                [characterId]
-            );
+            const rows = await this.context.prisma.my_game_inventory.findMany({
+                where: { character_id: characterId },
+                orderBy: { slot: 'asc' }
+            });
 
-            return (rows as any[]).map(row => ({
+            return rows.map(row => ({
                 id: row.id,
                 characterId: row.character_id,
                 itemId: row.item_id,
-                quantity: row.quantity,
-                slot: row.slot,
-                equipped: row.equipped
+                quantity: row.quantity ?? 1,
+                slot: row.slot ? parseInt(row.slot) : null,
+                equipped: row.equipped ?? false
             }));
         } catch (error) {
             this.context.logger.error(`Error getting inventory: ${error}`);
@@ -189,24 +192,24 @@ export class InventorySystem {
      */
     async getItem(characterId: number, itemId: string): Promise<InventoryItem | null> {
         try {
-            const [rows] = await this.context.db.execute(
-                'SELECT * FROM my_game_inventory WHERE character_id = ? AND item_id = ? LIMIT 1',
-                [characterId, itemId]
-            );
+            const row = await this.context.prisma.my_game_inventory.findFirst({
+                where: {
+                    character_id: characterId,
+                    item_id: itemId
+                }
+            });
 
-            const items = rows as any[];
-            if (items.length === 0) {
+            if (!row) {
                 return null;
             }
 
-            const row = items[0];
             return {
                 id: row.id,
                 characterId: row.character_id,
                 itemId: row.item_id,
-                quantity: row.quantity,
-                slot: row.slot,
-                equipped: row.equipped
+                quantity: row.quantity ?? 1,
+                slot: row.slot ? parseInt(row.slot) : null,
+                equipped: row.equipped ?? false
             };
         } catch (error) {
             this.context.logger.error(`Error getting item from inventory: ${error}`);
@@ -225,43 +228,41 @@ export class InventorySystem {
             }
 
             // Get items in both slots
-            const [fromRows] = await this.context.db.execute(
-                'SELECT * FROM my_game_inventory WHERE character_id = ? AND slot = ?',
-                [characterId, fromSlot]
-            );
+            const fromItem = await this.context.prisma.my_game_inventory.findFirst({
+                where: {
+                    character_id: characterId,
+                    slot: fromSlot.toString()
+                }
+            });
 
-            const [toRows] = await this.context.db.execute(
-                'SELECT * FROM my_game_inventory WHERE character_id = ? AND slot = ?',
-                [characterId, toSlot]
-            );
+            const toItem = await this.context.prisma.my_game_inventory.findFirst({
+                where: {
+                    character_id: characterId,
+                    slot: toSlot.toString()
+                }
+            });
 
-            const fromItems = fromRows as any[];
-            const toItems = toRows as any[];
-
-            if (fromItems.length === 0) {
+            if (!fromItem) {
                 return false; // No item to move
             }
 
-            const fromItem = fromItems[0];
-            const toItem = toItems.length > 0 ? toItems[0] : null;
-
             if (toItem) {
                 // Swap items
-                await this.context.db.execute(
-                    'UPDATE my_game_inventory SET slot = ? WHERE id = ?',
-                    [toSlot, fromItem.id]
-                );
+                await this.context.prisma.my_game_inventory.update({
+                    where: { id: fromItem.id },
+                    data: { slot: toSlot.toString() }
+                });
 
-                await this.context.db.execute(
-                    'UPDATE my_game_inventory SET slot = ? WHERE id = ?',
-                    [fromSlot, toItem.id]
-                );
+                await this.context.prisma.my_game_inventory.update({
+                    where: { id: toItem.id },
+                    data: { slot: fromSlot.toString() }
+                });
             } else {
                 // Move to empty slot
-                await this.context.db.execute(
-                    'UPDATE my_game_inventory SET slot = ? WHERE id = ?',
-                    [toSlot, fromItem.id]
-                );
+                await this.context.prisma.my_game_inventory.update({
+                    where: { id: fromItem.id },
+                    data: { slot: toSlot.toString() }
+                });
             }
 
             this.context.events.emit('inventory:itemMoved', {
@@ -282,12 +283,10 @@ export class InventorySystem {
      */
     async hasSpace(characterId: number, requiredSlots: number = 1): Promise<boolean> {
         try {
-            const [rows] = await this.context.db.execute(
-                'SELECT COUNT(*) as count FROM my_game_inventory WHERE character_id = ?',
-                [characterId]
-            );
+            const count = await this.context.prisma.my_game_inventory.count({
+                where: { character_id: characterId }
+            });
 
-            const count = (rows as any[])[0].count;
             return (count + requiredSlots) <= this.maxSlots;
         } catch (error) {
             this.context.logger.error(`Error checking inventory space: ${error}`);
@@ -300,12 +299,16 @@ export class InventorySystem {
      */
     async findEmptySlot(characterId: number): Promise<number | null> {
         try {
-            const [rows] = await this.context.db.execute(
-                'SELECT slot FROM my_game_inventory WHERE character_id = ? AND slot IS NOT NULL ORDER BY slot ASC',
-                [characterId]
-            );
+            const rows = await this.context.prisma.my_game_inventory.findMany({
+                where: {
+                    character_id: characterId,
+                    slot: { not: null }
+                },
+                select: { slot: true },
+                orderBy: { slot: 'asc' }
+            });
 
-            const usedSlots = new Set((rows as any[]).map(row => row.slot));
+            const usedSlots = new Set(rows.map(row => row.slot ? parseInt(row.slot) : null).filter(s => s !== null));
 
             for (let i = 0; i < this.maxSlots; i++) {
                 if (!usedSlots.has(i)) {
@@ -325,12 +328,17 @@ export class InventorySystem {
      */
     async setSlot(characterId: number, itemId: string, slot: number): Promise<boolean> {
         try {
-            const result = await this.context.db.execute(
-                'UPDATE my_game_inventory SET slot = ? WHERE character_id = ? AND item_id = ?',
-                [slot, characterId, itemId]
-            );
+            const result = await this.context.prisma.my_game_inventory.updateMany({
+                where: {
+                    character_id: characterId,
+                    item_id: itemId
+                },
+                data: {
+                    slot: slot.toString()
+                }
+            });
 
-            return (result as any)[0].affectedRows > 0;
+            return result.count > 0;
         } catch (error) {
             this.context.logger.error(`Error setting item slot: ${error}`);
             return false;
@@ -349,10 +357,10 @@ export class InventorySystem {
 
             const newQuantity = Math.min(this.maxStackSize, existing.quantity + quantity);
 
-            await this.context.db.execute(
-                'UPDATE my_game_inventory SET quantity = ? WHERE id = ?',
-                [newQuantity, existing.id]
-            );
+            await this.context.prisma.my_game_inventory.update({
+                where: { id: existing.id },
+                data: { quantity: newQuantity }
+            });
 
             return true;
         } catch (error) {

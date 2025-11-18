@@ -64,10 +64,11 @@ export class EquipmentSystem {
             const equipment = await this.getEquipment(characterId);
             if (!equipment) {
                 // Create equipment row
-                await this.context.db.execute(
-                    'INSERT INTO my_game_equipment (character_id) VALUES (?)',
-                    [characterId]
-                );
+                await this.context.prisma.my_game_equipment.create({
+                    data: {
+                        character_id: characterId
+                    }
+                });
             }
 
             // Get old item in slot
@@ -76,11 +77,13 @@ export class EquipmentSystem {
             // Calculate old and new stats
             const oldStats = await this.getStats(characterId);
 
-            // Update equipment
-            await this.context.db.execute(
-                `UPDATE my_game_equipment SET ${slot} = ? WHERE character_id = ?`,
-                [itemId, characterId]
-            );
+            // Update equipment (using dynamic slot name)
+            const updateData: any = {};
+            updateData[slot] = itemId;
+            await this.context.prisma.my_game_equipment.update({
+                where: { character_id: characterId },
+                data: updateData
+            });
 
             // Calculate new stats
             const newStats = await this.getStats(characterId);
@@ -130,11 +133,13 @@ export class EquipmentSystem {
             // Calculate old stats
             const oldStats = await this.getStats(characterId);
 
-            // Update equipment
-            await this.context.db.execute(
-                `UPDATE my_game_equipment SET ${slot} = NULL WHERE character_id = ?`,
-                [characterId]
-            );
+            // Update equipment (set slot to NULL)
+            const updateData: any = {};
+            updateData[slot] = null;
+            await this.context.prisma.my_game_equipment.update({
+                where: { character_id: characterId },
+                data: updateData
+            });
 
             // Calculate new stats
             const newStats = await this.getStats(characterId);
@@ -164,12 +169,10 @@ export class EquipmentSystem {
      */
     async getEquipment(characterId: number): Promise<EquipmentSet | null> {
         try {
-            const [rows] = await this.context.db.execute(
-                'SELECT * FROM my_game_equipment WHERE character_id = ?',
-                [characterId]
-            );
+            const equipment = await this.context.prisma.my_game_equipment.findUnique({
+                where: { character_id: characterId }
+            });
 
-            const equipment = (rows as any[])[0];
             if (!equipment) {
                 return null;
             }

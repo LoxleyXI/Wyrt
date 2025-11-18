@@ -2,7 +2,7 @@
  * 2D Position and Direction Types
  *
  * Common type definitions for 2D multiplayer games in Wyrt.
- * Used by Ironwood, CTF, and other 2D games for position tracking.
+ * Used by MyGame, CTF, and other 2D games for position tracking.
  */
 
 /**

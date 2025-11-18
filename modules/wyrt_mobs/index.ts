@@ -8,7 +8,7 @@
  * - Mob data loaders (YAML support)
  * - Type definitions for mob templates and instances
  *
- * Used by: Ironwood and any game that needs NPCs/enemies
+ * Used by: MyGame and any game that needs NPCs/enemies
  *
  * NOTE: This is a library module - it doesn't run on its own.
  * Game modules instantiate MobManager with their own mob templates and callbacks.
