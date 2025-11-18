@@ -18,6 +18,6 @@ modules/*
 .env.*.local
 
 # Wyrt Cloud (private, not committed to open-source repo)
-wyrt-cloud/
+WyrtCloud/
 
 /src/generated/prisma
