@@ -278,14 +278,25 @@ export class ModuleManager extends EventEmitter {
         const requestFiles = fs.readdirSync(requestsPath)
             .filter(file => file.endsWith('.ts') || file.endsWith('.js'));
 
+        // Determine if this is a game module or a core module
+        // Game modules don't start with 'wyrt_', core modules do
+        const isGameModule = !moduleName.startsWith('wyrt_');
+
         for (const file of requestFiles) {
             try {
                 const requestModule = await import(`file://${path.resolve(requestsPath, file)}`);
                 const requestType = path.basename(file, path.extname(file));
 
                 if (requestModule.default) {
-                    this.context.requestTypes.registerHandler(requestType, requestModule.default);
-                    this.logger.debug(colors.green("+handler ") + colors.cyan(`<${requestType}>`) + ` (module: ${moduleName})`);
+                    if (isGameModule) {
+                        // Game modules: register with game-scoped handlers
+                        this.context.requestTypes.registerGameHandler(moduleName, requestType, requestModule.default);
+                        this.logger.debug(colors.green("+handler ") + colors.cyan(`<${requestType}>`) + ` (game: ${moduleName})`);
+                    } else {
+                        // Core modules: register globally
+                        this.context.requestTypes.registerHandler(requestType, requestModule.default);
+                        this.logger.debug(colors.green("+handler ") + colors.cyan(`<${requestType}>`) + ` (module: ${moduleName})`);
+                    }
                 }
             }
 

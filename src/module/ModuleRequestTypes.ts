@@ -21,12 +21,50 @@
 import { Request } from "../types/Request";
 
 export class ModuleRequestTypes {
+    // Legacy flat handlers (for backward compatibility with core modules)
     public handlers: Record<string, Request> = {};
+
+    // Game-scoped handlers: gameHandlers[gameId][handlerType]
+    private gameHandlers: Map<string, Map<string, Request>> = new Map();
+
     private moduleHandlers: Map<string, Request> = new Map();
 
+    /**
+     * Register a handler for a specific game module
+     * @param gameId - Module name (e.g., 'my_game', 'my_game')
+     * @param type - Handler type (e.g., 'selectCharacter', 'move')
+     * @param handler - The handler implementation
+     */
+    registerGameHandler(gameId: string, type: string, handler: Request): void {
+        if (!this.gameHandlers.has(gameId)) {
+            this.gameHandlers.set(gameId, new Map());
+        }
+        this.gameHandlers.get(gameId)!.set(type, handler);
+    }
+
+    /**
+     * Register a global handler (backward compatibility for core modules)
+     */
     registerHandler(type: string, handler: Request): void {
         this.moduleHandlers.set(type, handler);
         this.handlers[type] = handler;
+    }
+
+    /**
+     * Get handler for a specific game and type
+     * Falls back to global handler if game-specific not found
+     */
+    getHandler(gameId: string | undefined, type: string): Request | undefined {
+        // Try game-specific handler first
+        if (gameId && this.gameHandlers.has(gameId)) {
+            const gameHandler = this.gameHandlers.get(gameId)!.get(type);
+            if (gameHandler) {
+                return gameHandler;
+            }
+        }
+
+        // Fall back to global handler (for core modules)
+        return this.handlers[type];
     }
 
     unregisterHandler(type: string): boolean {
