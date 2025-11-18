@@ -27,9 +27,11 @@ import { RateLimiter } from "../server/RateLimiter";
 import { Logger } from "../server/ConsoleLogger";
 import { WebManager } from "../server/WebManager";
 import { CharacterCreateHook, CharacterSelectHook } from "../types/Hooks.js";
+import type { PrismaClient } from "../generated/prisma/index.js";
 
 export interface ModuleContext {
-    db: any; // mysql2/promise connection
+    db: any; // mysql2/promise connection (legacy - use prisma instead)
+    prisma: PrismaClient; // Prisma ORM client (recommended)
     data: Data;
     commands: ModuleCommands;
     requestTypes: ModuleRequestTypes;
