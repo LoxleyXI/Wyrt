@@ -1,5 +1,9 @@
 import { ModuleContext } from "../../../src/module/IModule";
 
+export interface LootSystemConfig {
+    lootTableName: string;
+}
+
 export interface DroppedItem {
     id: number;
     characterId: number;
@@ -28,6 +32,7 @@ export interface LootAPI {
 
 export class LootSystem {
     private context: ModuleContext;
+    private config: LootSystemConfig;
     private cleanupInterval?: NodeJS.Timeout;
     private expiryTime: number = 5 * 60 * 1000; // 5 minutes
     private cleanupIntervalTime: number = 60 * 1000; // 1 minute
@@ -35,8 +40,9 @@ export class LootSystem {
     private memoryLoot: Map<number, DroppedItem> = new Map();
     private nextLootId: number = 1;
 
-    constructor(context: ModuleContext) {
+    constructor(context: ModuleContext, config: LootSystemConfig) {
         this.context = context;
+        this.config = config;
 
         // Force in-memory mode for now (no database required)
         this.useMemory = true;
@@ -88,7 +94,7 @@ export class LootSystem {
                 } else {
                     // Database storage
                     const result = await this.context.db.execute(
-                        `INSERT INTO my_game_dropped_loot
+                        `INSERT INTO ${this.config.lootTableName}
                         (character_id, zone, item_id, quantity, x, y, created_at, expires_at)
                         VALUES (?, ?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? SECOND))`,
                         [characterId, zone, item.itemId, item.quantity, x, y, this.expiryTime / 1000]
@@ -154,7 +160,7 @@ export class LootSystem {
             } else {
                 // Database storage
                 const [rows] = await this.context.db.execute(
-                    'SELECT * FROM my_game_dropped_loot WHERE id = ? AND character_id = ?',
+                    `SELECT * FROM ${this.config.lootTableName} WHERE id = ? AND character_id = ?`,
                     [lootId, characterId]
                 );
 
@@ -169,7 +175,7 @@ export class LootSystem {
                 // Check if expired
                 if (new Date(loot.expires_at) < new Date()) {
                     this.context.logger.warn(`Loot ${lootId} has expired`);
-                    await this.context.db.execute('DELETE FROM my_game_dropped_loot WHERE id = ?', [lootId]);
+                    await this.context.db.execute(`DELETE FROM ${this.config.lootTableName} WHERE id = ?`, [lootId]);
                     return false;
                 }
             }
@@ -191,7 +197,7 @@ export class LootSystem {
             if (this.useMemory) {
                 this.memoryLoot.delete(lootId);
             } else {
-                await this.context.db.execute('DELETE FROM my_game_dropped_loot WHERE id = ?', [lootId]);
+                await this.context.db.execute(`DELETE FROM ${this.config.lootTableName} WHERE id = ?`, [lootId]);
             }
 
             // Emit event
@@ -229,7 +235,7 @@ export class LootSystem {
             } else {
                 // Database storage
                 const [rows] = await this.context.db.execute(
-                    'SELECT * FROM my_game_dropped_loot WHERE character_id = ? AND zone = ? AND expires_at > NOW()',
+                    `SELECT * FROM ${this.config.lootTableName} WHERE character_id = ? AND zone = ? AND expires_at > NOW()`,
                     [characterId, zone]
                 );
 
@@ -276,7 +282,7 @@ export class LootSystem {
             } else {
                 // Database storage
                 const result = await this.context.db.execute(
-                    'DELETE FROM my_game_dropped_loot WHERE expires_at < NOW()'
+                    `DELETE FROM ${this.config.lootTableName} WHERE expires_at < NOW()`
                 );
 
                 const deletedCount = (result as any)[0].affectedRows;

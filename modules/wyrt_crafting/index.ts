@@ -12,11 +12,6 @@ export default class WyrtCraftingModule implements IModule {
 
     async initialize(context: ModuleContext): Promise<void> {
         context.logger.info(`[${this.name}] Initializing crafting system...`);
-
-        // CraftingManager will be initialized by game modules
-        // They need to provide skill manager and player manager
-        this.craftingManager = new CraftingManager(context);
-
         context.logger.info(`[${this.name}] ✓ Crafting system ready`);
     }
 

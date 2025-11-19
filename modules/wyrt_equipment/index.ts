@@ -1,5 +1,5 @@
 import { IModule, ModuleContext } from "../../src/module/IModule";
-import { EquipmentSystem } from "./systems/EquipmentSystem";
+import { EquipmentSystem, EquipmentSystemConfig } from "./systems/EquipmentSystem";
 import colors from "colors/safe";
 
 export default class EquipmentModule implements IModule {
@@ -26,7 +26,7 @@ export default class EquipmentModule implements IModule {
         console.log(`[${this.name}] Module deactivated`);
     }
 
-    createEquipmentSystem(gameId: string): EquipmentSystem {
+    createEquipmentSystem(gameId: string, config: EquipmentSystemConfig): EquipmentSystem {
         if (this.equipmentSystems.has(gameId)) {
             throw new Error(`EquipmentSystem for game '${gameId}' already exists`);
         }
@@ -34,7 +34,7 @@ export default class EquipmentModule implements IModule {
             throw new Error('Module not initialized');
         }
 
-        const system = new EquipmentSystem(this.context);
+        const system = new EquipmentSystem(this.context, config);
         this.equipmentSystems.set(gameId, system);
         console.log(`[${this.name}] Created equipment system for game: ${gameId}`);
         return system;

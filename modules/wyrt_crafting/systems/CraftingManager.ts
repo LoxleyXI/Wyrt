@@ -9,6 +9,10 @@ export interface Recipe {
     xp?: number; // Optional XP override
 }
 
+export interface CraftingManagerConfig {
+    skillTableName: string;
+}
+
 export interface CraftValidation {
     valid: boolean;
     error?: string;
@@ -18,9 +22,11 @@ export interface CraftValidation {
 
 export class CraftingManager {
     private context: ModuleContext;
+    private config: CraftingManagerConfig;
 
-    constructor(context: ModuleContext) {
+    constructor(context: ModuleContext, config: CraftingManagerConfig) {
         this.context = context;
+        this.config = config;
     }
 
     /**
@@ -143,7 +149,7 @@ export class CraftingManager {
 
         // Calculate XP using skill manager (square root scaling)
         const [skillRows] = await this.context.db.query(
-            'SELECT experience FROM my_game_skills WHERE character_id = ? AND skill_name = ?',
+            `SELECT experience FROM ${this.config.skillTableName} WHERE character_id = ? AND skill_name = ?`,
             [characterId, recipe.skill]
         ) as any;
         const playerSkillXP = (skillRows && skillRows[0]) ? skillRows[0].experience : 0;
