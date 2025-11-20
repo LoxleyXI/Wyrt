@@ -55,6 +55,41 @@ export class WebManager {
     throw new Error(`No available ports found between ${startPort} and ${this.maxPort}`);
   }
 
+  private async killPortProcess(port: number): Promise<void> {
+    if (process.platform === 'win32') {
+      try {
+        // Find process using the port
+        const { execSync } = await import('child_process');
+        const output = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8' });
+
+        // Parse PID from netstat output
+        const lines = output.split('\n').filter(line => line.includes('LISTENING'));
+        for (const line of lines) {
+          const parts = line.trim().split(/\s+/);
+          const pid = parts[parts.length - 1];
+          if (pid && pid !== '0') {
+            console.log(`[WebManager] Killing process ${pid} on port ${port}`);
+            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+          }
+        }
+      } catch (error) {
+        // Port might not be in use, or process already killed
+      }
+    } else {
+      try {
+        const { execSync } = await import('child_process');
+        const output = execSync(`lsof -ti:${port}`, { encoding: 'utf8' });
+        const pid = output.trim();
+        if (pid) {
+          console.log(`[WebManager] Killing process ${pid} on port ${port}`);
+          execSync(`kill -9 ${pid}`, { stdio: 'ignore' });
+        }
+      } catch (error) {
+        // Port might not be in use
+      }
+    }
+  }
+
   private async findModuleWebApps(): Promise<ModuleWebApp[]> {
     const webApps: ModuleWebApp[] = [];
 
@@ -264,12 +299,21 @@ export class WebManager {
       console.log('[WebManager] No module web apps found');
       return;
     }
-    
+
     console.log(`[WebManager] Found ${this.webApps.length} module web app(s):`);
     this.webApps.forEach(app => {
       console.log(`  - ${app.name} (port ${app.port})`);
     });
-    
+
+    // Kill any processes that might be using the assigned ports
+    console.log('[WebManager] Checking for processes on assigned ports...');
+    for (const webApp of this.webApps) {
+      await this.killPortProcess(webApp.port);
+    }
+
+    // Wait a moment for ports to be released
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     for (const webApp of this.webApps) {
       const process = this.startWebApp(webApp);
       if (process) {
