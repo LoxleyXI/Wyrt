@@ -1,5 +1,5 @@
 import { IModule, ModuleContext } from "../../src/module/IModule";
-import { LootSystem, LootSystemConfig } from "./systems/LootSystem";
+import { LootSystem } from "./systems/LootSystem";
 import colors from "colors/safe";
 
 export default class LootModule implements IModule {
@@ -29,7 +29,13 @@ export default class LootModule implements IModule {
         console.log(`[${this.name}] Module deactivated`);
     }
 
-    createLootSystem(gameId: string, config: LootSystemConfig): LootSystem {
+    /**
+     * Create a new loot system for a specific game
+     *
+     * @param gameId - Unique identifier for the game
+     * @returns The created loot system
+     */
+    createLootSystem(gameId: string): LootSystem {
         if (this.lootSystems.has(gameId)) {
             throw new Error(`LootSystem for game '${gameId}' already exists`);
         }
@@ -37,13 +43,19 @@ export default class LootModule implements IModule {
             throw new Error('Module not initialized');
         }
 
-        const system = new LootSystem(this.context, config);
+        const system = new LootSystem(this.context, gameId);
         this.lootSystems.set(gameId, system);
         system.startCleanup();
         console.log(`[${this.name}] Created loot system for game: ${gameId}`);
         return system;
     }
 
+    /**
+     * Get a loot system for a specific game
+     *
+     * @param gameId - Unique identifier for the game
+     * @returns The loot system for that game
+     */
     getLootSystem(gameId: string): LootSystem {
         const system = this.lootSystems.get(gameId);
         if (!system) {
