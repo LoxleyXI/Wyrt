@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_parties",
+  "version": "1.0.0",
+  "description": "Generic party system for multiplayer games",
+  "main": "index.ts",
+  "type": "module",
+  "author": "Loxley Games",
+  "license": "ISC"
+}

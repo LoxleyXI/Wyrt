@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_friends",
+  "version": "1.0.0",
+  "description": "Generic friend system for multiplayer games",
+  "main": "index.ts",
+  "type": "module",
+  "author": "Loxley Games",
+  "license": "ISC"
+}

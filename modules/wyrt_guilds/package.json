@@ -1,0 +1,9 @@
+{
+  "name": "wyrt_guilds",
+  "version": "1.0.0",
+  "description": "Generic guild system for multiplayer games",
+  "main": "index.ts",
+  "type": "module",
+  "author": "Loxley Games",
+  "license": "ISC"
+}
