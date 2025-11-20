@@ -1,9 +1,5 @@
 import { ModuleContext } from "../../../src/module/ModuleSystem";
 
-export interface EquipmentSystemConfig {
-    equipmentTableName: string;
-}
-
 export interface EquipmentSet {
     characterId: number;
     head: string | null;
@@ -31,12 +27,14 @@ export interface EquipmentAPI {
 
 export class EquipmentSystem {
     private context: ModuleContext;
-    private config: EquipmentSystemConfig;
+    private gameId: string;
+    private equipmentTableName: string;
     private validSlots = ['head', 'chest', 'legs', 'feet', 'hands', 'neck', 'ring1', 'ring2', 'weapon'];
 
-    constructor(context: ModuleContext, config: EquipmentSystemConfig) {
+    constructor(context: ModuleContext, gameId: string) {
         this.context = context;
-        this.config = config;
+        this.gameId = gameId;
+        this.equipmentTableName = `${gameId}_equipment`;
     }
 
     getAPI(): EquipmentAPI {
@@ -71,7 +69,7 @@ export class EquipmentSystem {
             if (!equipment) {
                 // Create equipment row
                 await this.context.db.query(
-                    `INSERT INTO ${this.config.equipmentTableName} (character_id) VALUES (?)`,
+                    `INSERT INTO ${this.equipmentTableName} (character_id) VALUES (?)`,
                     [characterId]
                 );
             }
@@ -84,7 +82,7 @@ export class EquipmentSystem {
 
             // Update equipment (using dynamic slot name)
             await this.context.db.query(
-                `UPDATE ${this.config.equipmentTableName} SET ${slot} = ? WHERE character_id = ?`,
+                `UPDATE ${this.equipmentTableName} SET ${slot} = ? WHERE character_id = ?`,
                 [itemId, characterId]
             );
 
@@ -138,7 +136,7 @@ export class EquipmentSystem {
 
             // Update equipment (set slot to NULL)
             await this.context.db.query(
-                `UPDATE ${this.config.equipmentTableName} SET ${slot} = NULL WHERE character_id = ?`,
+                `UPDATE ${this.equipmentTableName} SET ${slot} = NULL WHERE character_id = ?`,
                 [characterId]
             );
 
@@ -171,7 +169,7 @@ export class EquipmentSystem {
     async getEquipment(characterId: number): Promise<EquipmentSet | null> {
         try {
             const [rows] = await this.context.db.query(
-                `SELECT * FROM ${this.config.equipmentTableName} WHERE character_id = ?`,
+                `SELECT * FROM ${this.equipmentTableName} WHERE character_id = ?`,
                 [characterId]
             ) as any;
 
