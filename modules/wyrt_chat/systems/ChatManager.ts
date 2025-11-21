@@ -14,7 +14,7 @@ export interface ChatMessage {
 }
 
 export interface ChatAPI {
-    sendMessage(characterId: number, channelType: ChannelType, channelId: number | null, message: string, toCharacterId?: number): Promise<boolean>;
+    sendMessage(characterId: number | string, channelType: ChannelType, channelId: number | null, message: string, toCharacterId?: number, characterName?: string): Promise<ChatMessage | null>;
     whisper(characterId: number, targetCharacterId: number, message: string): Promise<boolean>;
     subscribeToChannel(characterId: number, channelType: ChannelType, channelId: number | null): Promise<boolean>;
     unsubscribeFromChannel(characterId: number, channelType: ChannelType, channelId: number | null): Promise<boolean>;
@@ -27,17 +27,13 @@ export interface ChatAPI {
 export class ChatManager {
     private context: ModuleContext;
     private gameId: string;
-    private messagesTable: string;
-    private subscriptionsTable: string;
-    private messageHistoryLimit = 100;
     private spamThrottleMs = 1000; // 1 second between messages
-    private lastMessageTime: Map<number, number> = new Map();
+    private lastMessageTime: Map<string, number> = new Map();
+    private messageIdCounter = 1;
 
     constructor(context: ModuleContext, gameId: string) {
         this.context = context;
         this.gameId = gameId;
-        this.messagesTable = `${gameId}_chat_messages`;
-        this.subscriptionsTable = `${gameId}_chat_subscriptions`;
     }
 
     getAPI(): ChatAPI {
@@ -54,25 +50,27 @@ export class ChatManager {
     }
 
     async sendMessage(
-        characterId: number,
+        characterId: number | string,
         channelType: ChannelType,
         channelId: number | null,
         message: string,
-        toCharacterId?: number
-    ): Promise<boolean> {
+        toCharacterId?: number,
+        characterName?: string  // Optional: pass name directly to skip database lookup
+    ): Promise<ChatMessage | null> {
         try {
-            // Anti-spam check
+            // Anti-spam check (use string key for Map to support both number and string IDs)
+            const spamKey = String(characterId);
             const now = Date.now();
-            const lastTime = this.lastMessageTime.get(characterId) || 0;
+            const lastTime = this.lastMessageTime.get(spamKey) || 0;
             if (now - lastTime < this.spamThrottleMs) {
                 this.context.logger.warn(`Character ${characterId} is sending messages too quickly`);
-                return false;
+                return null;
             }
-            this.lastMessageTime.set(characterId, now);
+            this.lastMessageTime.set(spamKey, now);
 
             // Validate message
             if (!message || message.trim().length === 0) {
-                return false;
+                return null;
             }
 
             // Truncate long messages
@@ -87,7 +85,7 @@ export class ChatManager {
                 });
                 if (!results || !results.some((r: any) => r === true)) {
                     this.context.logger.warn(`Character ${characterId} not in guild ${channelId}`);
-                    return false;
+                    return null;
                 }
             } else if (channelType === 'party' && channelId) {
                 // Check if character is in party
@@ -97,48 +95,48 @@ export class ChatManager {
                 });
                 if (!results || !results.some((r: any) => r === true)) {
                     this.context.logger.warn(`Character ${characterId} not in party ${channelId}`);
-                    return false;
+                    return null;
                 }
             }
 
-            // Get character name
-            const [charRows] = await this.context.db.query(
-                `SELECT name FROM characters WHERE id = ?`,
-                [characterId]
-            ) as any;
+            // Get character name (use provided name or lookup from database)
+            let finalCharacterName = characterName;
+            if (!finalCharacterName) {
+                // Only lookup from database if name not provided
+                const [charRows] = await this.context.db.query(
+                    `SELECT name FROM characters WHERE id = ?`,
+                    [characterId]
+                ) as any;
 
-            if (charRows.length === 0) {
-                return false;
+                if (charRows.length === 0) {
+                    this.context.logger.warn(`Character ${characterId} not found in database`);
+                    return null;
+                }
+                finalCharacterName = charRows[0].name;
             }
 
-            const characterName = charRows[0].name;
+            // Generate message ID (in-memory, no database storage)
+            const messageId = this.messageIdCounter++;
+            const createdAt = new Date();
 
-            // Store message
-            const result = await this.context.db.query(
-                `INSERT INTO ${this.messagesTable}
-                 (channel_type, channel_id, from_character_id, to_character_id, message, created_at)
-                 VALUES (?, ?, ?, ?, ?, NOW())`,
-                [channelType, channelId, characterId, toCharacterId || null, message]
-            ) as any;
-
-            const messageId = result[0].insertId;
-
-            // Emit event to broadcast message to all subscribers
-            this.context.events.emit('chat:messageSent', {
+            const chatMessage: ChatMessage = {
                 messageId,
                 channelType,
                 channelId,
-                fromCharacterId: characterId,
-                fromCharacterName: characterName,
+                fromCharacterId: characterId as number,
+                fromCharacterName: finalCharacterName,
                 toCharacterId,
-                message,
-                createdAt: new Date()
-            });
+                message: message.trim(),
+                createdAt
+            };
 
-            return true;
+            // Emit event to notify that message was sent
+            this.context.events.emit('chat:messageSent', chatMessage);
+
+            return chatMessage;
         } catch (error) {
             this.context.logger.error(`Error sending message: ${error}`);
-            return false;
+            return null;
         }
     }
 
