@@ -1,0 +1,7 @@
+{
+    "loot": {
+        "useMemory": true,
+        "expiryTime": 300000,
+        "cleanupInterval": 60000
+    }
+}
