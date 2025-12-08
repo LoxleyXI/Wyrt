@@ -22,7 +22,7 @@
  *
  * // Create manager with templates
  * this.mobManager = new MobManager(context, templates, {
- *   onMobDeath: (mob, killer) => { /* handle death */ }
+ *   onMobDeath: (mob, killer) => { handleDeath(mob, killer); }
  * });
  *
  * // Spawn a mob
