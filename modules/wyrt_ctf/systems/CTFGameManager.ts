@@ -5,11 +5,11 @@
 import { CTFGameState, CTFPlayer, MapConfig, Team, Position, Direction } from '../types/CTFTypes';
 import { FlagManager } from './FlagManager';
 import { ModuleContext } from '../../../src/module/IModule';
-import { TeamManager } from '../../wyrt_teams/systems/TeamManager';
-import { PickupManager } from '../../wyrt_pickups/systems/PickupManager';
-import { ProjectileManager } from '../../wyrt_projectiles/systems/ProjectileManager';
-import { BuffManager } from '../../wyrt_buffs/systems/BuffManager';
-import { RespawnManager } from '../../wyrt_respawn/systems/RespawnManager';
+import { TeamManager } from '../../wyrt_multiplayer/wyrt_teams/systems/TeamManager';
+import { PickupManager } from '../../wyrt_world/wyrt_pickups/systems/PickupManager';
+import { ProjectileManager } from '../../wyrt_gameplay/wyrt_projectiles/systems/ProjectileManager';
+import { BuffManager } from '../../wyrt_gameplay/wyrt_buffs/systems/BuffManager';
+import { RespawnManager } from '../../wyrt_gameplay/wyrt_respawn/systems/RespawnManager';
 
 const GAME_UPDATE_RATE = 60;  // Updates per second
 const CAPTURE_LIMIT = 3;  // First to 3 wins
