@@ -1,0 +1,177 @@
+# Rocks
+Flint:
+  name: a piece of flint
+  desc: A sharp natural glass.
+  icon: 227
+  value: 2
+
+Small_Rock:
+  name: a small rock
+  desc: A small sized rock.
+  icon: 238
+  value: 4
+
+Medium_Rock:
+  name: a medium rock
+  desc: A medium sized rock.
+  icon: 239
+  value: 8
+
+Large_Rock:
+  name: a large rock
+  desc: A large sized rock.
+  icon: 240
+  value: 12
+
+# Bronze
+Copper_Ore:
+  name: a chunk of copper ore
+  desc: A hard mineral containing copper.
+  icon: 228
+  value: 6
+
+Copper_Ingot:
+  name: a copper ingot
+  desc: A smelted bar of copper.
+  icon: 569
+  value: 8
+
+Tin_Ore:
+  name: a chunk of tin ore
+  desc: A hard mineral containing tin.
+  icon: 229
+  value: 9
+
+Bronze_Ingot:
+  name: a bronze ingot
+  desc: A smelted bar of bronze.
+  icon: 570
+  value: 12
+
+# Iron
+Iron_Ore:
+  name: a chunk of iron ore
+  desc: A hard mineral containing iron.
+  icon: 230
+  value: 15
+
+Iron_Ingot:
+  name: an iron ingot
+  desc: A smelted bar of iron.
+  icon: 572
+  value: 18
+
+Steel_Ingot:
+  name: a steel ingot
+  desc: A smelted bar of steel.
+  icon: 571
+  value: 22
+
+# Silver
+Silver_Ore:
+  name: a chunk of silver ore
+  desc: A rare mineral containing silver.
+  icon: 231
+  value: 24
+
+Silver_Ingot:
+  name: a silver ingot
+  desc: A smelted bar of silver.
+  icon: 575
+  value: 30
+
+# Gold
+Gold_Ore:
+  name: a chunk of gold ore
+  desc: A rare mineral containing gold.
+  icon: 232
+  value: 35
+
+Gold_Ingot:
+  name: a gold ingot
+  desc: A smelted bar of gold.
+  icon: 574
+  value: 40
+
+# Platinum
+Platinum_Ore:
+  name: a chunk of platinum ore
+  desc: A rare mineral containing platinum.
+  icon: 233
+  value: 60
+
+Platinum_Ingot:
+  name: a platinum ingot
+  desc: A smelted bar of platinum.
+  icon: 573
+  value: 75
+
+# Leather
+Leather_Strand:
+  name: a handful of leather strands
+  desc: A few strips of scrap leather.
+  icon: 616
+  value: 4
+
+# Hides
+Light_Hide:
+  name: a light hide
+  desc: A very light hide.
+  icon: 416
+  value: 3
+
+Medium_Hide:
+  name: a medium hide
+  desc: A hide of average thickness.
+  icon: 418
+  value: 12
+
+Heavy_Hide:
+  name: a heavy hide
+  desc: A hide of heavy thickness.
+  icon: 420
+  value: 24
+
+Thick_Hide:
+  name: a thick hide
+  desc: A very thick hide.
+  icon: 423
+  value: 40
+
+# Feathers
+Light_Feather:
+  name: a light feather
+  desc: A very tiny lightweight feather.
+  icon: 2971
+  value: 1
+
+Medium_Feather:
+  name: a medium feather
+  desc: A medium sized feather.
+  icon: 2972
+  value: 6
+
+# Thread
+Flax_Flower:
+  name: a flax flower
+  desc: A flax flower, including the stem.
+  icon: 644
+  value: 7
+
+Linen_Thread:
+  name: a spool of linen thread
+  desc: A soft, light coloured thread.
+  icon: 645
+  value: 15
+
+Linen_Cloth:
+  name: a sheet of linen thread
+  desc: A soft, light coloured sheet of cloth.
+  icon: 461
+  value: 25
+
+Spider_Silk:
+  name: a spool of spider silk
+  desc: Incredibly strong but lightweight thread.
+  icon: 646
+  value: 12

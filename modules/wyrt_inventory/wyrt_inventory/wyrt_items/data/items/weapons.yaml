@@ -1,0 +1,285 @@
+Copper_Axe:
+  name: a copper axe
+  type: Axe
+  level: 1
+  slot: Weapon
+  desc: A copper axe.
+  icon: 1100
+  dmg : 3
+  rate: 300
+  stat:
+    - [2, STR]
+
+Bronze_Axe:
+  name: a bronze axe
+  type: Axe
+  level: 8
+  slot: Weapon
+  desc: A bronze axe.
+  icon: 1100
+  dmg : 4
+  rate: 300
+  stat:
+    - [3, STR]
+
+Lumberjack_Axe:
+  name: a lumberjack axe
+  type: Axe
+  level: 10
+  slot: Weapon
+  desc: The axe of a lumberjack.
+  icon: 1612
+  dmg : 4
+  rate: 300
+  stat:
+    - [10, HP ]
+    - [ 5, DEF]
+    - [ 3, STR]
+
+Iron_Axe:
+  name: an iron axe
+  type: Axe
+  level: 14
+  slot: Weapon
+  desc: An iron axe.
+  icon: 1612
+  dmg : 5
+  rate: 300
+  stat:
+    - [4, STR]
+
+Steel_Axe:
+  name: a steel axe
+  type: Axe
+  level: 18
+  slot: Weapon
+  desc: A steel axe.
+  icon: 1932
+  dmg : 7
+  rate: 300
+  stat:
+    - [6, STR]
+
+Silver_Axe:
+  name: a silver axe
+  type: Axe
+  level: 22
+  slot: Weapon
+  desc: A axe decorated with silver.
+  icon: 1164
+  dmg : 9
+  rate: 300
+  stat:
+    - [8, STR]
+
+Gold_Axe:
+  name: a gold axe
+  type: Axe
+  level: 28
+  slot: Weapon
+  desc: A axe decorated with gold.
+  icon: 1036
+  dmg : 11
+  rate: 300
+  stat:
+    - [10, STR]
+
+Platinum_Axe:
+  name: a platinum axe
+  type: Axe
+  level: 32
+  slot: Weapon
+  desc: A axe decorated with platinum.
+  icon: 1740
+  dmg : 15
+  rate: 300
+  stat:
+    - [14, STR]
+
+Copper_Knife:
+  name: a copper knife
+  type: Dagger
+  level: 1
+  slot: Weapon
+  desc: A copper knife.
+  icon: 1094
+  dmg : 2
+  rate: 150
+  stat:
+    - [2, DEX]
+
+Bronze_Knife:
+  name: a bronze knife
+  type: Dagger
+  level: 8
+  slot: Weapon
+  desc: A bronze knife.
+  icon: 1542
+  dmg : 3
+  rate: 150
+  stat:
+    - [3, DEX]
+
+Iron_Knife:
+  name: an iron knife
+  type: Dagger
+  level: 14
+  slot: Weapon
+  desc: An iron knife.
+  icon: 1578
+  dmg : 4
+  rate: 150
+  stat:
+    - [4, DEX]
+
+Sinister_Shiv:
+  name: a sinister shiv
+  type: Dagger
+  level: 16
+  slot: Weapon
+  desc: A subtle blade.
+  icon: 2502
+  dmg : 5
+  rate: 150
+  stat:
+    - [25, HP]
+    - [5, DEX]
+
+Steel_Knife:
+  name: a steel knife
+  type: Dagger
+  level: 18
+  slot: Weapon
+  desc: A steel knife.
+  icon: 1606
+  dmg : 6
+  rate: 150
+  stat:
+    - [6, DEX]
+
+Silver_Knife:
+  name: a silver knife
+  type: Dagger
+  level: 22
+  slot: Weapon
+  desc: A knife decorated with silver.
+  icon: 1926
+  dmg : 8
+  rate: 150
+  stat:
+    - [8, DEX]
+
+Gold_Knife:
+  name: a gold knife
+  type: Dagger
+  level: 28
+  slot: Weapon
+  desc: A knife decorated with gold.
+  icon: 1030
+  dmg : 10
+  rate: 150
+  stat:
+    - [10, DEX]
+
+Platinum_Knife:
+  name: a platinum knife
+  type: Dagger
+  level: 32
+  slot: Weapon
+  desc: A knife decorated with platinum.
+  icon: 2310
+  dmg : 14
+  rate: 150
+  stat:
+    - [14, DEX]
+
+Copper_Sword:
+  name: a copper sword
+  type: Sword
+  level: 1
+  slot: Weapon
+  desc: A copper sword.
+  icon: 1091
+  dmg : 1
+  rate: 200
+  stat:
+    - [1, STR]
+    - [1, DEX]
+
+Bronze_Sword:
+  name: a bronze sword
+  type: Sword
+  level: 8
+  slot: Weapon
+  desc: A bronze sword.
+  icon: 1543
+  dmg : 2
+  rate: 200
+  stat:
+    - [2, STR]
+    - [2, DEX]
+
+Iron_Sword:
+  name: an iron sword
+  type: Sword
+  level: 14
+  slot: Weapon
+  desc: An iron sword.
+  icon: 1479
+  dmg : 3
+  rate: 200
+  stat:
+    - [3, STR]
+    - [3, DEX]
+
+Steel_Sword:
+  name: a steel sword
+  type: Sword
+  level: 18
+  slot: Weapon
+  desc: A steel sword.
+  icon: 1605
+  dmg : 4
+  rate: 200
+  stat:
+    - [4, STR]
+    - [4, DEX]
+
+Silver_Sword:
+  name: a silver sword
+  type: Sword
+  level: 22
+  slot: Weapon
+  desc: A sword decorated with silver.
+  icon: 2501
+  dmg : 5
+  rate: 200
+  stat:
+    - [5, STR]
+    - [5, DEX]
+
+Gold_Sword:
+  name: a gold sword
+  type: Sword
+  level: 28
+  slot: Weapon
+  desc: A sword decorated with gold.
+  icon: 1027
+  dmg : 6
+  rate: 200
+  stat:
+    - [6, STR]
+    - [6, DEX]
+
+Platinum_Sword:
+  name: a platinum sword
+  type: Sword
+  level: 32
+  slot: Weapon
+  desc: A sword decorated with platinum.
+  icon: 2309
+  dmg : 7
+  rate: 200
+  stat:
+    - [7, STR]
+    - [7, DEX]
