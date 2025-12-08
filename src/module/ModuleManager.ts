@@ -118,37 +118,64 @@ export class ModuleManager extends EventEmitter {
             return;
         }
 
-        let moduleDirs = fs.readdirSync(moduleDir, { withFileTypes: true })
-            .filter(dirent => dirent.isDirectory())
-            .map(dirent => dirent.name);
+        // Collect all module paths - supports both flat and nested category structures
+        // Nested: modules/wyrt_world/wyrt_2d/package.json
+        // Flat: modules/wyrt_2d/package.json (legacy/game modules)
+        let modulePaths: { name: string; path: string }[] = [];
+
+        const topLevelDirs = fs.readdirSync(moduleDir, { withFileTypes: true })
+            .filter(dirent => dirent.isDirectory());
+
+        for (const dir of topLevelDirs) {
+            const dirPath = path.join(moduleDir, dir.name);
+            const packageJsonPath = path.join(dirPath, 'package.json');
+
+            if (fs.existsSync(packageJsonPath)) {
+                // Flat structure: this directory IS a module
+                modulePaths.push({ name: dir.name, path: dirPath });
+            } else if (dir.name.startsWith('wyrt_')) {
+                // Category directory (e.g., wyrt_world/) - scan for modules inside
+                const categoryDirs = fs.readdirSync(dirPath, { withFileTypes: true })
+                    .filter(d => d.isDirectory());
+
+                for (const subDir of categoryDirs) {
+                    const subPath = path.join(dirPath, subDir.name);
+                    const subPackageJson = path.join(subPath, 'package.json');
+
+                    if (fs.existsSync(subPackageJson)) {
+                        modulePaths.push({ name: subDir.name, path: subPath });
+                    }
+                }
+            }
+        }
 
         // Filter modules if enabled list is specified in config
         const enabledModules = this.context.config?.server?.modules?.enabled;
         if (enabledModules && Array.isArray(enabledModules) && enabledModules.length > 0) {
             this.logger.info(`Filtering modules: only loading ${enabledModules.join(', ')}`);
-            moduleDirs = moduleDirs.filter(dir => enabledModules.includes(dir));
+            modulePaths = modulePaths.filter(m => enabledModules.includes(m.name));
         }
 
         // Sort modules so wyrt_ prefixed modules load first
-        moduleDirs.sort((a, b) => {
-            const aIsWyrt = a.startsWith('wyrt_');
-            const bIsWyrt = b.startsWith('wyrt_');
+        modulePaths.sort((a, b) => {
+            const aIsWyrt = a.name.startsWith('wyrt_');
+            const bIsWyrt = b.name.startsWith('wyrt_');
 
             if (aIsWyrt && !bIsWyrt) return -1;
             if (!aIsWyrt && bIsWyrt) return 1;
-            return a.localeCompare(b);
+            return a.name.localeCompare(b.name);
         });
 
-        this.logger.info(`Loading modules in order: ${moduleDirs.join(', ')}`);
+        this.logger.info(`Loading modules in order: ${modulePaths.map(m => m.name).join(', ')}`);
 
         // Phase 1: Load and initialize all modules (but don't activate yet)
-        for (const dir of moduleDirs) {
+        for (const mod of modulePaths) {
             try {
-                await this.loadModule(path.join(moduleDir, dir), false);
+                await this.loadModule(mod.path, false);
             }
 
             catch (error) {
-                this.logger.error(`Failed to load module from ${dir}:`, error);
+                this.logger.error(`Failed to load module from ${mod.name}:`, error);
             }
         }
 
