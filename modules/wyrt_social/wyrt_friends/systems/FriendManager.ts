@@ -36,6 +36,7 @@ export class FriendManager {
     private friendsTable: string;
     private requestsTable: string;
     private blockedTable: string;
+    private onlineChecker?: (characterId: number) => boolean;
 
     constructor(context: ModuleContext, gameId: string) {
         this.context = context;
@@ -43,6 +44,14 @@ export class FriendManager {
         this.friendsTable = `${gameId}_friends`;
         this.requestsTable = `${gameId}_friend_requests`;
         this.blockedTable = `${gameId}_blocked_users`;
+    }
+
+    /**
+     * Set a callback function to check if a character is online
+     * The game module should provide this based on its player tracking
+     */
+    setOnlineChecker(checker: (characterId: number) => boolean): void {
+        this.onlineChecker = checker;
     }
 
     getAPI(): FriendAPI {
@@ -369,11 +378,12 @@ export class FriendManager {
 
     async isOnline(characterId: number): Promise<boolean> {
         try {
-            // Emit hook event to check online status via game module
-            const results = await this.context.events.emitAsync('friends:checkOnlineStatus', characterId);
-
-            // If any listener returns true, the character is online
-            return results && results.some((result: any) => result === true);
+            // Use the online checker callback if provided
+            if (this.onlineChecker) {
+                return this.onlineChecker(characterId);
+            }
+            // Default: character is offline if no checker is set
+            return false;
         } catch (error) {
             this.context.logger.error(`Error checking online status: ${error}`);
             return false;
