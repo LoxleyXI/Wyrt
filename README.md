@@ -164,7 +164,20 @@ Automatically discovers and serves module frontends:
    npm start
    ```
 
-4. **Access Interfaces**
+4. **Start Specific Games Only**
+   ```bash
+   # Linux/Mac
+   WYRT_MODULES=mygame npm start
+
+   # Windows
+   set WYRT_MODULES=mygame && npm start
+
+   # Multiple games
+   WYRT_MODULES=game1,game2 npm start
+   ```
+   Core modules (wyrt_*) always load. Only game modules need to be specified.
+
+5. **Access Interfaces**
    - Admin Panel: http://localhost:8000
    - CTF Demo: http://localhost:8001
    - HTTP API: http://localhost:4040
