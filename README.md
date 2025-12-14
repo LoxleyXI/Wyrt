@@ -30,6 +30,7 @@ Framework modules that provide reusable game systems:
 - **wyrt_mobs**: Generic NPC/enemy system with AI
 - **wyrt_collision**: Collision detection with sliding movement
 - **wyrt_teams**: Team management with auto-balancing
+- **wyrt_party**: Party/group system with invites and leader management
 - **wyrt_pickups**: Item pickup/spawn system
 - **wyrt_projectiles**: Projectile physics and collision
 - **wyrt_buffs**: Buff/debuff system with timers
