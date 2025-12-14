@@ -149,11 +149,18 @@ export class ModuleManager extends EventEmitter {
             }
         }
 
-        // Filter modules if enabled list is specified in config
-        const enabledModules = this.context.config?.server?.modules?.enabled;
-        if (enabledModules && Array.isArray(enabledModules) && enabledModules.length > 0) {
-            this.logger.info(`Filtering modules: only loading ${enabledModules.join(', ')}`);
-            modulePaths = modulePaths.filter(m => enabledModules.includes(m.name));
+        // Filter modules by environment variable or config
+        // WYRT_MODULES env var takes precedence (comma-separated list of game modules)
+        // wyrt_* core modules are always loaded unless explicitly excluded
+        const envModules = process.env.WYRT_MODULES?.split(',').map(m => m.trim()).filter(Boolean);
+        const configModules = this.context.config?.server?.modules?.enabled;
+        const enabledGames = envModules || (Array.isArray(configModules) ? configModules : null);
+
+        if (enabledGames && enabledGames.length > 0) {
+            this.logger.info(`Loading games: ${enabledGames.join(', ')}`);
+            modulePaths = modulePaths.filter(m =>
+                m.name.startsWith('wyrt_') || enabledGames.includes(m.name)
+            );
         }
 
         // Sort modules so wyrt_ prefixed modules load first
