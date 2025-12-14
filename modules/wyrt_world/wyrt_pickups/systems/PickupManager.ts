@@ -40,9 +40,24 @@ export class PickupManager {
 
         this.pickups.set(config.id, pickup);
 
-        console.log(`[PickupManager] Registered pickup: ${config.itemType} at (${config.position.x}, ${config.position.y})`);
-
         return pickup;
+    }
+
+    /**
+     * Register multiple pickups at once (with consolidated logging)
+     *
+     * @param configs - Array of pickup configurations
+     * @returns Array of created pickups
+     */
+    registerPickups(configs: PickupConfig[]): Pickup[] {
+        const pickups = configs.map(config => this.registerPickup(config));
+
+        if (pickups.length > 0) {
+            const summary = pickups.map(p => `${p.itemType}@(${p.position.x},${p.position.y})`).join(', ');
+            console.log(`[PickupManager] Registered ${pickups.length} pickups: ${summary}`);
+        }
+
+        return pickups;
     }
 
     /**

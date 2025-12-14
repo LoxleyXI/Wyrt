@@ -98,20 +98,22 @@ export class CTFGameManager {
         });
 
         // Register weapon pickups
-        for (const weaponSpawn of mapConfig.weaponSpawns) {
-            const pickup = this.pickups.registerPickup({
-                id: `weapon_${weaponSpawn.position.x}_${weaponSpawn.position.y}`,
-                itemType: weaponSpawn.type,
-                position: weaponSpawn.position,
-                respawnTime: 15000,  // 15 seconds
-                pickupRange: 32
-            });
+        const pickupConfigs = mapConfig.weaponSpawns.map(weaponSpawn => ({
+            id: `weapon_${weaponSpawn.position.x}_${weaponSpawn.position.y}`,
+            itemType: weaponSpawn.type,
+            position: weaponSpawn.position,
+            respawnTime: 15000,  // 15 seconds
+            pickupRange: 32
+        }));
 
-            // Add to gameState.weapons
+        const registeredPickups = this.pickups.registerPickups(pickupConfigs);
+
+        // Add to gameState.weapons
+        for (const pickup of registeredPickups) {
             this.gameState.weapons.set(pickup.id, {
                 id: pickup.id,
-                type: weaponSpawn.type as any,
-                spawnPosition: weaponSpawn.position,
+                type: pickup.itemType as any,
+                spawnPosition: pickup.position,
                 respawnTime: 15000,
                 pickedUpBy: null,
                 respawnAt: null
