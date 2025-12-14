@@ -255,6 +255,8 @@ export class ModuleManager extends EventEmitter {
         const loaderFiles = fs.readdirSync(loadersPath)
             .filter(file => file.endsWith('.ts') || file.endsWith('.js'));
 
+        const loadedLoaders: string[] = [];
+
         for (const file of loaderFiles) {
             try {
                 const loaderModule = await import(`file://${path.resolve(loadersPath, file)}`);
@@ -262,13 +264,17 @@ export class ModuleManager extends EventEmitter {
 
                 if (loaderModule.default) {
                     this.context.data.registerLoader(dataType, loaderModule.default);
-                    this.logger.debug(colors.green("+loader ") + colors.magenta(`{${dataType}}`) + ` (module: ${moduleName})`);
+                    loadedLoaders.push(`{${dataType}}`);
                 }
             }
 
             catch (error) {
                 this.logger.error(`Failed to load data loader ${file} from module ${moduleName}:`, error);
             }
+        }
+
+        if (loadedLoaders.length > 0) {
+            this.logger.debug(colors.green("+loaders ") + `(${moduleName}): ` + colors.magenta(loadedLoaders.join(', ')));
         }
     }
 
@@ -280,6 +286,8 @@ export class ModuleManager extends EventEmitter {
         const commandFiles = fs.readdirSync(commandsPath)
             .filter(file => file.endsWith('.ts') || file.endsWith('.js'));
 
+        const loadedCommands: string[] = [];
+
         for (const file of commandFiles) {
             try {
                 const commandModule = await import(`file://${path.resolve(commandsPath, file)}`);
@@ -287,13 +295,17 @@ export class ModuleManager extends EventEmitter {
 
                 if (commandModule.default) {
                     this.context.commands.registerCommand(commandName, commandModule.default);
-                    this.logger.debug(colors.green("+command ") + colors.yellow(`/${commandName}`) + ` (module: ${moduleName})`);
+                    loadedCommands.push(`/${commandName}`);
                 }
             }
 
             catch (error) {
                 this.logger.error(`Failed to load command ${file} from module ${moduleName}:`, error);
             }
+        }
+
+        if (loadedCommands.length > 0) {
+            this.logger.debug(colors.green("+commands ") + `(${moduleName}): ` + colors.yellow(loadedCommands.join(', ')));
         }
     }
 
@@ -308,6 +320,7 @@ export class ModuleManager extends EventEmitter {
         // Determine if this is a game module or a core module
         // Game modules don't start with 'wyrt_', core modules do
         const isGameModule = !moduleName.startsWith('wyrt_');
+        const loadedHandlers: string[] = [];
 
         for (const file of requestFiles) {
             try {
@@ -318,18 +331,22 @@ export class ModuleManager extends EventEmitter {
                     if (isGameModule) {
                         // Game modules: register with game-scoped handlers
                         this.context.requestTypes.registerGameHandler(moduleName, requestType, requestModule.default);
-                        this.logger.debug(colors.green("+handler ") + colors.cyan(`<${requestType}>`) + ` (game: ${moduleName})`);
                     } else {
                         // Core modules: register globally
                         this.context.requestTypes.registerHandler(requestType, requestModule.default);
-                        this.logger.debug(colors.green("+handler ") + colors.cyan(`<${requestType}>`) + ` (module: ${moduleName})`);
                     }
+                    loadedHandlers.push(`<${requestType}>`);
                 }
             }
 
             catch (error) {
                 this.logger.error(`Failed to load request ${file} from module ${moduleName}:`, error);
             }
+        }
+
+        if (loadedHandlers.length > 0) {
+            const scope = isGameModule ? 'game' : 'module';
+            this.logger.debug(colors.green("+handlers ") + `(${scope}: ${moduleName}): ` + colors.cyan(loadedHandlers.join(', ')));
         }
     }
 
