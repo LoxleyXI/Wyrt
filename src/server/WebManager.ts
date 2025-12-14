@@ -100,11 +100,18 @@ export class WebManager {
 
     let modules = fs.readdirSync(this.modulesDir);
 
-    // Filter modules based on enabled list (if specified)
-    const enabledModules = this.config?.server?.modules?.enabled;
-    if (enabledModules && Array.isArray(enabledModules) && enabledModules.length > 0) {
-      modules = modules.filter(module => enabledModules.includes(module));
-      console.log(`[WebManager] Filtering to enabled modules: ${enabledModules.join(', ')}`);
+    // Filter modules by environment variable or config
+    // WYRT_MODULES env var takes precedence (comma-separated list of game modules)
+    // wyrt_* core modules are always loaded unless explicitly excluded
+    const envModules = process.env.WYRT_MODULES?.split(',').map(m => m.trim()).filter(Boolean);
+    const configModules = this.config?.server?.modules?.enabled;
+    const enabledGames = envModules || (Array.isArray(configModules) ? configModules : null);
+
+    if (enabledGames && enabledGames.length > 0) {
+      console.log(`[WebManager] Loading frontends for games: ${enabledGames.join(', ')}`);
+      modules = modules.filter(module =>
+        module.startsWith('wyrt_') || enabledGames.includes(module)
+      );
     }
 
     console.log(`[WebManager] Scanning ${modules.length} modules for web apps...`);
