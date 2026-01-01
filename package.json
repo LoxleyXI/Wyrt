@@ -15,9 +15,9 @@
   "description": "An MMO Engine",
   "dependencies": {
     "@prisma/client": "^6.19.0",
-    "@types/bcrypt": "^5.0.2",
+    "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "colors": "^1.4.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
