@@ -20,12 +20,37 @@
 //----------------------------------
 import { ModuleContext } from "./ModuleContext";
 
+/**
+ * Game-specific configuration options.
+ * Used by game modules to configure client behavior.
+ */
+export interface GameConfig {
+    /**
+     * Command prefix for chat input.
+     * - null or undefined: MUD-style, commands don't require a prefix (default)
+     * - "/": Slash prefix required for commands, plain text is chat
+     */
+    commandPrefix?: string | null;
+
+    /**
+     * Whether to show command echoes in the terminal.
+     * Defaults to true.
+     */
+    echoCommands?: boolean;
+}
+
 // Base module interface
 export interface IModule {
     name: string;
     version: string;
     description?: string;
     dependencies?: string[];
+
+    /**
+     * Game configuration (for game modules).
+     * Core modules (wyrt_*) typically don't define this.
+     */
+    gameConfig?: GameConfig;
 
     // Lifecycle methods
     initialize?(context: ModuleContext): Promise<void> | void;
