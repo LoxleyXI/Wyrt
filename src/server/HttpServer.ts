@@ -233,6 +233,31 @@ export class HttpServer {
             });
         });
 
+        // Game config API - returns game-specific configuration for clients
+        this.app.get('/api/games/:gameId/config', (req: Request, res: Response) => {
+            const { gameId } = req.params;
+
+            // Get the game module
+            const module = this.context.getModule(gameId);
+            if (!module) {
+                return res.status(404).json({
+                    success: false,
+                    message: `Game '${gameId}' not found`
+                });
+            }
+
+            // Return game config with sensible defaults
+            const config = module.gameConfig || {};
+            res.json({
+                success: true,
+                gameId,
+                config: {
+                    commandPrefix: config.commandPrefix ?? null,  // null = MUD-style (no prefix)
+                    echoCommands: config.echoCommands ?? true,
+                }
+            });
+        });
+
         // Generic module data API
         this.app.get('/api/data/:module/:category/:name?', async (req: Request, res: Response) => {
             try {
