@@ -1,0 +1,7 @@
+{
+  "name": "wyrt_dungeons",
+  "version": "1.0.0",
+  "description": "Generic room-graph dungeon system for RPG games",
+  "type": "module",
+  "main": "index.ts"
+}

@@ -533,6 +533,9 @@ export type LogEntryType =
  * Games get instances via createCombatManager().
  */
 export interface CombatManager {
+  /** The config used to create this manager */
+  config: ICombatConfig;
+
   /** Check if a participant is currently in combat */
   isInCombat(participantId: string): boolean;
 

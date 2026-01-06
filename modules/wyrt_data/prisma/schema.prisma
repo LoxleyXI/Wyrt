@@ -1,0 +1,1086 @@
+// =============================================================================
+// Wyrt Generic Game Schema
+// =============================================================================
+//
+// A database-driven game content system where games are defined entirely by
+// data. This schema supports multiple games in one database, with all content
+// scoped by gameId.
+//
+// Design Principles:
+// 1. Slug-based references - Human-readable, portable, easy to export/import
+// 2. JSONB flexibility - No schema changes needed for new game features
+// 3. Type discrimination - One table with type field, not many tables
+// 4. Content vs State - Content defines the game, State tracks player progress
+// 5. Game as container - Everything scoped by gameId
+//
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// GAME CONTAINER
+// =============================================================================
+
+/// The top-level game container. Each game (MyGame, Lairs, etc.) is a record.
+/// All content and player state is scoped to a game.
+///
+/// Supports hierarchical games:
+/// - Standalone games: { slug: 'my_game', type: 'game', parentId: null }
+/// - Platforms: { slug: 'lairs', type: 'platform', parentId: null }
+/// - Sub-games/lairs: { slug: 'fantasy-mud', type: 'lair', parentId: lairs.id }
+model Game {
+  id          String   @id @default(uuid())
+  slug        String   @unique              // 'my_game', 'lairs', 'fantasy-mud'
+  name        String                        // "MyGame"
+  description String?
+  version     String   @default("1.0.0")
+
+  // Game type and hierarchy
+  // 'game' = standalone game (MyGame)
+  // 'platform' = hosts sub-games (Lairs)
+  // 'lair' = sub-game within a platform
+  // 'instance' = per-player/party instance of a game
+  type        String   @default("game")
+
+  // Parent game (for sub-games/lairs)
+  parentId    String?
+  parent      Game?    @relation("GameHierarchy", fields: [parentId], references: [id])
+  children    Game[]   @relation("GameHierarchy")
+
+  // Owner (for user-created lairs)
+  ownerId     String?                       // User who created this lair
+
+  // Game-wide configuration
+  // { combatMode, tickInterval, startingLocation, maxPartySize, ... }
+  settings    Json     @default("{}")
+
+  // Visual/branding
+  // { logo, favicon, primaryColor, theme, ... }
+  branding    Json     @default("{}")
+
+  // Feature flags
+  // { pvpEnabled, guildEnabled, tradingEnabled, ... }
+  features    Json     @default("{}")
+
+  // Template settings (for platforms)
+  // { defaultSettings, requiredContent, allowedTypes, ... }
+  template    Json     @default("{}")
+
+  // Game state
+  isPublic    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)      // For discovery/marketplace
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Content relations
+  items       Item[]
+  entities    Entity[]
+  locations   Location[]
+  abilities   Ability[]
+  quests      Quest[]
+  recipes     Recipe[]
+  archetypes  Archetype[]
+  dialogues   Dialogue[]
+  skills      Skill[]
+  lootTables  LootTable[]
+  achievements Achievement[]
+  stats       Stat[]
+  companions  Companion[]
+
+  // Player state relations
+  characters  Character[]
+
+  @@index([isPublic, isActive])
+  @@index([type])
+  @@index([parentId])
+  @@index([ownerId])
+}
+
+// =============================================================================
+// CONTENT TABLES - Define the game (read-only at runtime)
+// =============================================================================
+
+/// Items - weapons, armor, consumables, materials, quest items, currency
+model Item {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'iron_sword', 'health_potion'
+  name        String                        // "Iron Sword"
+  description String?
+
+  // Classification
+  type        String                        // 'weapon', 'armor', 'consumable', 'material', 'quest', 'currency'
+  subtype     String?                       // 'sword', 'helmet', 'potion', 'ore'
+  rarity      String   @default("common")   // 'common', 'uncommon', 'rare', 'epic', 'legendary'
+
+  // Visual
+  icon        String?                       // Icon asset path or URL
+
+  // Stats and effects (JSONB for flexibility)
+  // Weapons: { attack, magicAttack, speed, critChance, element }
+  // Armor: { defense, magicDefense, hp, resistances }
+  // Consumables: { healing, manaRestore, duration }
+  stats       Json     @default("{}")
+
+  // Effects when used/equipped
+  // { onEquip: [...], onUse: [...], passive: [...] }
+  effects     Json     @default("{}")
+
+  // Requirements to use/equip
+  // { level: 5, strength: 10, class: ['warrior', 'paladin'] }
+  requirements Json    @default("{}")
+
+  // Equipment slot (for equippable items)
+  // 'head', 'chest', 'legs', 'feet', 'hands', 'mainhand', 'offhand', 'ring', 'amulet'
+  slot        String?
+
+  // Stacking
+  stackable   Boolean  @default(true)
+  maxStack    Int      @default(99)
+
+  // Economy
+  sellPrice   Int      @default(0)
+  buyPrice    Int      @default(0)
+
+  // For quest items or special items
+  isUnique    Boolean  @default(false)      // Only one can exist
+  isSoulbound Boolean  @default(false)      // Can't be traded
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, type])
+  @@index([gameId, rarity])
+}
+
+/// Entities - mobs, NPCs, bosses, pets, allies
+model Entity {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'goblin', 'blacksmith_tom'
+  name        String                        // "Goblin Warrior"
+  description String?
+
+  // Classification
+  type        String                        // 'mob', 'npc', 'boss', 'miniboss', 'pet', 'ally'
+  subtype     String?                       // 'humanoid', 'beast', 'undead', 'merchant', 'trainer'
+
+  // Visual
+  sprite      String?                       // Sprite asset path
+  portrait    String?                       // Portrait for dialogues
+
+  // Combat stats
+  level       Int      @default(1)
+
+  // Base stats (JSONB for flexibility)
+  // { hp, maxHp, attack, defense, magicAttack, magicDefense, speed, ... }
+  stats       Json     @default("{}")
+
+  // Stat scaling per level (for mobs)
+  // { hp: 1.1, attack: 1.05, ... } - multipliers per level
+  scaling     Json     @default("{}")
+
+  // Abilities this entity can use
+  // ['basic_attack', 'fireball', 'heal']
+  abilities   Json     @default("[]")
+
+  // What drops when killed (for mobs)
+  // Reference to LootTable slug, or inline: [{ itemSlug, chance, minQty, maxQty }]
+  lootTable   String?                       // LootTable slug
+  lootInline  Json     @default("[]")       // Inline loot definition
+
+  // Experience/currency rewards
+  expReward   Int      @default(0)
+  goldReward  Int      @default(0)
+
+  // NPC functionality
+  dialogueSlug String?                      // Starting dialogue
+
+  // Shop items (for merchants)
+  // [{ itemSlug, stock, refreshRate }]
+  shopItems   Json     @default("[]")
+
+  // Quests this NPC gives
+  // ['intro_quest', 'gathering_quest']
+  quests      Json     @default("[]")
+
+  // AI behavior for combat
+  // { aggression, preferredTargets, abilityWeights, fleeThreshold }
+  behavior    Json     @default("{}")
+
+  // Spawn configuration
+  // { respawnTime, maxCount, spawnChance, conditions }
+  spawnConfig Json     @default("{}")
+
+  // Default location (optional)
+  locationSlug String?
+
+  // Elemental properties
+  element     String?                       // 'fire', 'ice', 'lightning', etc.
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, type])
+  @@index([gameId, locationSlug])
+}
+
+/// Locations - rooms, areas, zones, regions
+model Location {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'starting_village', 'dark_forest_1'
+  name        String                        // "Starting Village"
+  description String?                       // Room description text
+
+  // Classification
+  type        String                        // 'region', 'area', 'room', 'dungeon', 'instance'
+  subtype     String?                       // 'town', 'wilderness', 'cave', 'indoor'
+
+  // Hierarchy (region -> area -> room)
+  parentSlug  String?                       // Parent location slug
+
+  // Navigation
+  // { north: 'forest_path', south: 'village_gate', enter: 'shop_interior' }
+  exits       Json     @default("{}")
+
+  // Visual assets
+  // { background, tilemap, music, ambience }
+  assets      Json     @default("{}")
+
+  // Entities that spawn here
+  // [{ entitySlug, count, respawnTime }] or just ['goblin', 'wolf']
+  entities    Json     @default("[]")
+
+  // Items on the ground / containers
+  // [{ itemSlug, quantity, respawnTime }]
+  items       Json     @default("[]")
+
+  // Gathering nodes
+  // [{ type: 'mining', nodeSlug: 'iron_ore', respawnTime: 60 }]
+  resources   Json     @default("[]")
+
+  // Requirements to enter
+  // { level: 5, quest: 'forest_key', item: 'dungeon_key' }
+  requirements Json    @default("{}")
+
+  // Flags
+  isPvpZone   Boolean  @default(false)
+  isSafeZone  Boolean  @default(false)
+  isInstance  Boolean  @default(false)      // Each player/party gets own copy
+
+  // Level range for scaling
+  minLevel    Int?
+  maxLevel    Int?
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, type])
+  @@index([gameId, parentSlug])
+}
+
+/// Abilities - skills, spells, attacks, actions
+model Ability {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'fireball', 'heavy_strike'
+  name        String                        // "Fireball"
+  description String?
+
+  // Classification
+  type        String                        // 'attack', 'heal', 'buff', 'debuff', 'utility', 'passive'
+
+  // Visual
+  icon        String?
+  animation   String?                       // Animation to play
+
+  // Damage/healing
+  // { base: 50, scaling: { magicAttack: 1.5 }, type: 'magical', element: 'fire' }
+  damage      Json     @default("{}")
+
+  // Resource cost
+  // { mana: 20 } or { stamina: 10, hp: 5 }
+  cost        Json     @default("{}")
+
+  // Timing
+  cooldown    Int      @default(0)          // Cooldown in ticks/turns
+  castTime    Int      @default(0)          // Cast time in ms (0 = instant)
+
+  // Targeting
+  // 'self', 'single_enemy', 'single_ally', 'all_enemies', 'all_allies', 'all', 'aoe'
+  targetType  String   @default("single_enemy")
+
+  // For AoE abilities
+  // { radius: 3, shape: 'circle' }
+  aoeConfig   Json     @default("{}")
+
+  // Status effects applied
+  // [{ type: 'dot', damage: 10, duration: 5, element: 'fire' }]
+  effects     Json     @default("[]")
+
+  // Requirements to learn/use
+  // { level: 10, class: ['mage'], skill: { magic: 5 } }
+  requirements Json    @default("{}")
+
+  // For combo system
+  // { comboTag: 'fire', combosFrom: ['ignite'], comboMultiplier: 1.5 }
+  combo       Json     @default("{}")
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, type])
+}
+
+/// Quests - main story, side quests, dailies, achievements
+model Quest {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'kill_10_goblins'
+  name        String                        // "Goblin Menace"
+  description String?
+
+  // Classification
+  type        String                        // 'main', 'side', 'daily', 'weekly', 'repeatable', 'hidden'
+  category    String?                       // 'combat', 'gathering', 'crafting', 'exploration'
+
+  // Quest giver (NPC entity slug)
+  giverSlug   String?
+
+  // Quest chain
+  prerequisiteSlug String?                  // Must complete this quest first
+  nextQuestSlug    String?                  // Auto-accept after completion
+
+  // Objectives
+  // [{ type: 'kill', target: 'goblin', count: 10, description: 'Kill 10 Goblins' }]
+  // [{ type: 'collect', target: 'goblin_ear', count: 5 }]
+  // [{ type: 'visit', target: 'dark_cave' }]
+  // [{ type: 'talk', target: 'village_elder' }]
+  // [{ type: 'craft', target: 'iron_sword', count: 1 }]
+  objectives  Json     @default("[]")
+
+  // Rewards
+  // { exp: 100, gold: 50, items: [{ slug: 'health_potion', qty: 5 }], reputation: { faction: 10 } }
+  rewards     Json     @default("{}")
+
+  // Requirements to accept
+  // { level: 5, reputation: { village: 100 }, quest: 'intro_quest' }
+  requirements Json    @default("{}")
+
+  // Dialogue references
+  // { accept: 'quest_accept_dialogue', progress: 'quest_progress_dialogue', complete: 'quest_complete_dialogue' }
+  dialogues   Json     @default("{}")
+
+  // Timing (for daily/weekly)
+  resetPeriod String?                       // 'daily', 'weekly', null for one-time
+
+  // Level range
+  minLevel    Int?
+  maxLevel    Int?
+
+  // Sorting/display
+  sortOrder   Int      @default(0)
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, type])
+  @@index([gameId, giverSlug])
+}
+
+/// Recipes - crafting, cooking, alchemy, smithing
+model Recipe {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'iron_sword_recipe'
+  name        String                        // "Iron Sword"
+  description String?
+
+  // Classification
+  type        String                        // 'crafting', 'cooking', 'alchemy', 'smithing', 'enchanting'
+
+  // What it produces
+  outputSlug  String                        // Item slug
+  outputQty   Int      @default(1)
+
+  // Ingredients
+  // [{ itemSlug: 'iron_ore', quantity: 3 }, { itemSlug: 'coal', quantity: 1 }]
+  ingredients Json     @default("[]")
+
+  // Required skill and level
+  skillSlug   String?                       // Skill required
+  skillLevel  Int      @default(1)          // Minimum level
+
+  // Required station/location
+  // 'forge', 'alchemy_table', 'campfire', null for anywhere
+  station     String?
+
+  // Crafting parameters
+  duration    Int      @default(0)          // Craft time in ms (0 = instant)
+  expReward   Int      @default(0)          // Skill XP gained
+
+  // Success rate (for advanced crafting systems)
+  baseSuccess Float    @default(1.0)        // 1.0 = 100%
+
+  // Requirements
+  // { level: 5, quest: 'learn_smithing' }
+  requirements Json    @default("{}")
+
+  // Is this recipe auto-learned or must be discovered/bought?
+  isDefault   Boolean  @default(true)
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, type])
+  @@index([gameId, skillSlug])
+}
+
+/// Archetypes - character classes, jobs, roles
+model Archetype {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'warrior', 'mage', 'rogue'
+  name        String                        // "Warrior"
+  description String?
+
+  // Visual
+  icon        String?
+  portrait    String?
+
+  // Classification (for class trees)
+  tier        Int      @default(1)          // 1 = base class, 2 = advanced, etc.
+  parentSlug  String?                       // For class advancement
+
+  // Starting stats
+  // { hp: 100, attack: 15, defense: 10, speed: 8 }
+  baseStats   Json     @default("{}")
+
+  // Stat growth per level
+  // { hp: 10, attack: 2, defense: 1.5 }
+  statGrowth  Json     @default("{}")
+
+  // Starting equipment
+  // ['wooden_sword', 'cloth_armor']
+  startingItems Json   @default("[]")
+
+  // Starting abilities
+  // ['basic_attack', 'power_strike']
+  startingAbilities Json @default("[]")
+
+  // Abilities learned at levels
+  // { 5: ['cleave'], 10: ['whirlwind'], 20: ['berserk'] }
+  abilityProgression Json @default("{}")
+
+  // Equipment restrictions
+  // { allowedWeapons: ['sword', 'axe'], allowedArmor: ['heavy', 'medium'] }
+  equipment   Json     @default("{}")
+
+  // Requirements to unlock/choose
+  // { level: 20, quest: 'warrior_trial', class: 'fighter' }
+  requirements Json    @default("{}")
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, tier])
+}
+
+/// Dialogues - NPC conversations, cutscenes, tutorials
+model Dialogue {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'blacksmith_intro'
+  name        String?                       // For editor display
+
+  // The dialogue tree
+  // [
+  //   { id: 'start', speaker: 'blacksmith', text: 'Hello traveler!', choices: [
+  //     { text: 'Hello!', next: 'greeting' },
+  //     { text: 'What do you sell?', next: 'shop' }
+  //   ]},
+  //   { id: 'greeting', text: 'Fine day, isn\'t it?', next: 'end' },
+  //   { id: 'shop', text: 'Take a look...', action: 'open_shop', next: 'end' }
+  // ]
+  nodes       Json     @default("[]")
+
+  // Conditions for this dialogue to be available
+  // { quest: 'intro_quest', reputation: { village: 50 } }
+  conditions  Json     @default("{}")
+
+  // Priority (higher = preferred when multiple dialogues available)
+  priority    Int      @default(0)
+
+  // Is this a one-time dialogue?
+  isOneTime   Boolean  @default(false)
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+}
+
+/// Skills - gathering, crafting, combat skills with levels
+model Skill {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'mining', 'smithing', 'combat'
+  name        String                        // "Mining"
+  description String?
+
+  // Classification
+  type        String                        // 'gathering', 'crafting', 'combat', 'utility'
+
+  // Visual
+  icon        String?
+
+  // Leveling
+  maxLevel    Int      @default(100)
+
+  // XP curve
+  // { base: 100, multiplier: 1.1 } -> xp_for_level = base * (multiplier ^ level)
+  xpCurve     Json     @default("{}")
+
+  // Unlocks at levels
+  // { 10: { recipes: ['iron_pickaxe'] }, 20: { abilities: ['mining_boost'] } }
+  unlocks     Json     @default("{}")
+
+  // Passive bonuses per level
+  // { gatherSpeed: 0.01, resourceYield: 0.005 } -> +1% per level
+  passives    Json     @default("{}")
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, type])
+}
+
+/// Loot Tables - reusable drop tables for mobs, chests, etc.
+model LootTable {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'goblin_drops', 'treasure_chest_rare'
+  name        String?
+
+  // Loot entries
+  // [
+  //   { itemSlug: 'gold_coin', chance: 1.0, minQty: 5, maxQty: 20 },
+  //   { itemSlug: 'goblin_ear', chance: 0.5, minQty: 1, maxQty: 1 },
+  //   { itemSlug: 'rare_gem', chance: 0.01, minQty: 1, maxQty: 1 }
+  // ]
+  entries     Json     @default("[]")
+
+  // How many items to roll (for chests)
+  rolls       Int      @default(1)
+
+  // Guaranteed drops (always included)
+  // [{ itemSlug: 'goblin_tooth', qty: 1 }]
+  guaranteed  Json     @default("[]")
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+}
+
+/// Achievements - unlockable achievements/trophies
+model Achievement {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'first_blood', 'master_crafter'
+  name        String                        // "First Blood"
+  description String?
+
+  // Visual
+  icon        String?
+
+  // Category for grouping
+  category    String?                       // 'combat', 'exploration', 'crafting'
+
+  // Unlock condition
+  // { type: 'kill_count', target: 'any', count: 1 }
+  // { type: 'level_reach', value: 50 }
+  // { type: 'quest_complete', target: 'final_boss' }
+  condition   Json     @default("{}")
+
+  // Rewards for unlocking
+  // { title: 'Goblin Slayer', items: [{ slug: 'trophy', qty: 1 }] }
+  rewards     Json     @default("{}")
+
+  // Points/rarity
+  points      Int      @default(10)
+  rarity      String   @default("common")
+
+  // Is this hidden until unlocked?
+  isHidden    Boolean  @default(false)
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, category])
+}
+
+// =============================================================================
+// STATE TABLES - Track player progress (read-write at runtime)
+// =============================================================================
+
+/// Character - a player's character in a specific game
+model Character {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  // External user reference (from auth system)
+  userId      String
+
+  // Character info
+  name        String
+  archetypeSlug String                      // Class/job
+
+  // Progression
+  level       Int      @default(1)
+  experience  Int      @default(0)
+
+  // Current stats (calculated from base + equipment + buffs)
+  // Cached for performance, recalculated on equipment change
+  stats       Json     @default("{}")
+
+  // Resources
+  // { gold: 0, gems: 0, tokens: 0, ... }
+  currency    Json     @default("{}")
+
+  // Current location
+  locationSlug String?
+
+  // Combat state (for real-time combat)
+  // { hp: 100, maxHp: 100, mana: 50, maxMana: 50, inCombat: false }
+  combatState Json     @default("{}")
+
+  // Unlocked content
+  // { recipes: ['iron_sword'], abilities: ['fireball'], locations: ['dark_cave'] }
+  unlocks     Json     @default("{}")
+
+  // Reputation with factions
+  // { village: 100, thieves_guild: -50 }
+  reputation  Json     @default("{}")
+
+  // Titles earned
+  // { active: 'dragon_slayer', unlocked: ['goblin_slayer', 'dragon_slayer'] }
+  titles      Json     @default("{}")
+
+  // Settings/preferences
+  // { autoLoot: true, showDamageNumbers: true }
+  settings    Json     @default("{}")
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastActiveAt DateTime @default(now())
+
+  // Relations
+  inventory   InventoryItem[]
+  equipment   Equipment[]
+  questProgress QuestProgress[]
+  skills      CharacterSkill[]
+  buffs       CharacterBuff[]
+  achievements CharacterAchievement[]
+
+  @@unique([gameId, userId])
+  @@unique([gameId, name])
+  @@index([gameId])
+  @@index([userId])
+}
+
+/// Inventory items owned by a character
+model InventoryItem {
+  id          String    @id @default(uuid())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  itemSlug    String                        // References Item.slug
+  quantity    Int       @default(1)
+
+  // For unique/instanced items (enchantments, durability, sockets)
+  // { enchantments: ['fire_damage'], durability: 85, sockets: ['ruby'] }
+  instanceData Json     @default("{}")
+
+  // When acquired
+  acquiredAt  DateTime  @default(now())
+
+  @@unique([characterId, itemSlug, instanceData]) // Allow multiple stacks with different instance data
+  @@index([characterId])
+}
+
+/// Currently equipped items
+model Equipment {
+  id          String    @id @default(uuid())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  slot        String                        // 'head', 'chest', 'mainhand', etc.
+  itemSlug    String                        // References Item.slug
+
+  // Instance data (same as inventory)
+  instanceData Json     @default("{}")
+
+  equippedAt  DateTime  @default(now())
+
+  @@unique([characterId, slot])
+  @@index([characterId])
+}
+
+/// Quest progress for a character
+model QuestProgress {
+  id          String    @id @default(uuid())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  questSlug   String                        // References Quest.slug
+
+  // Status
+  status      String    @default("active")  // 'active', 'completed', 'failed', 'abandoned'
+
+  // Progress on each objective
+  // { 'kill_goblin': 5, 'collect_ore': 3 }
+  progress    Json      @default("{}")
+
+  // Completion count (for repeatable quests)
+  completions Int       @default(0)
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([characterId, questSlug])
+  @@index([characterId, status])
+}
+
+/// Character skill levels
+model CharacterSkill {
+  id          String    @id @default(uuid())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  skillSlug   String                        // References Skill.slug
+  level       Int       @default(1)
+  experience  Int       @default(0)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([characterId, skillSlug])
+  @@index([characterId])
+}
+
+/// Active buffs/debuffs on a character
+model CharacterBuff {
+  id          String    @id @default(uuid())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  // Buff identification
+  buffSlug    String                        // Ability or item that caused it
+  name        String
+  type        String                        // 'buff', 'debuff'
+
+  // Effect
+  // { stat: 'attack', modifier: 10, modifierType: 'flat' }
+  // { stat: 'speed', modifier: 20, modifierType: 'percent' }
+  effect      Json      @default("{}")
+
+  // Stacking
+  stacks      Int       @default(1)
+  maxStacks   Int       @default(1)
+
+  // Duration
+  expiresAt   DateTime?                     // null = permanent
+
+  // Source
+  sourceId    String?                       // Who applied it
+
+  createdAt   DateTime  @default(now())
+
+  @@index([characterId])
+  @@index([expiresAt])
+}
+
+/// Unlocked achievements
+model CharacterAchievement {
+  id          String    @id @default(uuid())
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  achievementSlug String                    // References Achievement.slug
+
+  // Progress (for progressive achievements)
+  progress    Json      @default("{}")
+
+  unlockedAt  DateTime?                     // null if not yet unlocked
+
+  @@unique([characterId, achievementSlug])
+  @@index([characterId])
+}
+
+// =============================================================================
+// RUNTIME/SESSION TABLES (optional - for server-managed state)
+// =============================================================================
+
+/// Active combat sessions (for real-time or async combat)
+model CombatSession {
+  id          String   @id @default(uuid())
+  gameId      String
+
+  // Participants
+  // [{ id, type, name, team, stats, buffs, ... }]
+  participants Json    @default("[]")
+
+  // Turn order (for turn-based)
+  turnOrder   Json     @default("[]")
+  currentTurn Int      @default(0)
+  round       Int      @default(1)
+
+  // Combat mode
+  mode        String   @default("real_time") // 'real_time', 'turn_based'
+  status      String   @default("active")    // 'active', 'paused', 'victory', 'defeat'
+
+  // Location/context
+  locationSlug String?
+
+  // Combat log
+  log         Json     @default("[]")
+
+  // Timing
+  startedAt   DateTime @default(now())
+  lastTickAt  DateTime @default(now())
+
+  // Game-specific data
+  gameData    Json     @default("{}")
+
+  @@index([gameId, status])
+}
+
+/// Active expeditions/journeys
+model ExpeditionSession {
+  id          String   @id @default(uuid())
+  gameId      String
+
+  // Type reference
+  expeditionSlug String
+
+  // Party
+  characterIds Json    @default("[]")
+
+  // Timing
+  startedAt   DateTime @default(now())
+  completesAt DateTime
+
+  // Status
+  status      String   @default("active")   // 'active', 'completed', 'claimed', 'failed'
+
+  // Results (populated on completion)
+  results     Json     @default("{}")
+
+  // Game-specific data
+  gameData    Json     @default("{}")
+
+  @@index([gameId, status])
+  @@index([completesAt])
+}
+
+/// Active dungeon runs
+model DungeonSession {
+  id          String   @id @default(uuid())
+  gameId      String
+
+  // Dungeon reference
+  dungeonSlug String
+
+  // Party
+  characterIds Json    @default("[]")
+
+  // Progress
+  currentRoom String
+  visitedRooms Json    @default("[]")
+  floor       Int      @default(1)
+
+  // Party state
+  partyState  Json     @default("{}")       // HP, resources per character
+
+  // Loot collected
+  lootCollected Json   @default("[]")
+
+  // Status
+  status      String   @default("active")   // 'active', 'victory', 'defeat', 'abandoned'
+
+  // Timing
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  // Difficulty/modifiers
+  difficulty  String   @default("normal")
+  modifiers   Json     @default("[]")
+
+  // Game-specific data
+  gameData    Json     @default("{}")
+
+  @@index([gameId, status])
+}
+
+// =============================================================================
+// STATS (Dynamic Stat Definitions)
+// =============================================================================
+
+/// Per-game custom stat definitions
+/// Games can define their own stats (Strength, Magic, Faith, etc.)
+/// with display properties, formulas for derived stats, and value constraints
+model Stat {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'strength', 'dexterity', 'health'
+  name        String                        // "Strength"
+  description String?
+
+  // Display
+  color       String?                       // Hex color: "#ef4444"
+  icon        String?                       // Sprite/icon reference
+
+  // Behavior
+  format      String   @default("flat")     // 'flat' | 'percentage'
+  category    String?                       // 'primary' | 'combat' | 'derived' | 'utility'
+
+  // For derived stats (calculated from other stats)
+  formula     String?                       // "strength * 2 + level * 5"
+
+  // Value constraints
+  baseValue   Int      @default(0)          // Default starting value
+  minValue    Int?                          // Minimum cap
+  maxValue    Int?                          // Maximum cap
+
+  // Ordering
+  sortOrder   Int      @default(0)          // Display order in UI
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+  @@index([gameId, category])
+}
+
+// =============================================================================
+// COMPANIONS (AI Companions)
+// =============================================================================
+
+/// AI companions that can accompany players
+/// Configuration for AI personality, knowledge, and unlock requirements
+model Companion {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  slug        String                        // 'lyra', 'torch_guardian'
+  name        String                        // "Lyra"
+  description String?
+
+  // AI Configuration
+  personality String?  @db.Text             // System prompt for AI behavior
+  voiceStyle  String?                       // 'archaic', 'modern', 'cryptic', 'playful'
+  appearance  String?  @db.Text             // Visual/physical description
+
+  // Knowledge
+  // Tags/topics the companion knows about for context
+  knowledge   Json     @default("[]")
+
+  // Unlock requirements
+  unlockType  String   @default("default")  // 'default', 'quest', 'achievement', 'purchase', 'secret'
+  unlockReq   Json     @default("{}")       // { questSlug, achievementSlug, price, etc. }
+
+  // Companion abilities
+  // What the companion can do beyond conversation
+  abilities   Json     @default("[]")
+
+  // Game-specific extensions
+  properties  Json     @default("{}")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([gameId, slug])
+}

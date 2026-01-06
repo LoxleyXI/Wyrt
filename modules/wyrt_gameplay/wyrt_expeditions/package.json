@@ -1,0 +1,7 @@
+{
+  "name": "wyrt_expeditions",
+  "version": "1.0.0",
+  "description": "Generic timed expedition system for RPG games",
+  "type": "module",
+  "main": "index.ts"
+}
