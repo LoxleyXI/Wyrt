@@ -13,7 +13,8 @@ export interface OAuthConfig {
 
 export interface OAuthUser {
     id: string;           // Provider's user ID
-    username: string;     // Display name/username
+    username: string;     // Login username (e.g., Discord username)
+    displayName?: string; // Display name (e.g., Discord global_name)
     email?: string;       // Email (if provided by provider)
     avatar?: string;      // Avatar URL (if provided)
     provider: string;     // Provider name (discord, google, etc.)

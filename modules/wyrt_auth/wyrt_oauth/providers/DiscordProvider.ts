@@ -80,6 +80,7 @@ export class DiscordProvider extends OAuthProvider {
         return {
             id: data.id,
             username: data.username,
+            displayName: data.global_name || data.username,
             email: data.email,
             avatar: data.avatar
                 ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`

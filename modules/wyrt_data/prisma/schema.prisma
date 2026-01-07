@@ -715,6 +715,9 @@ model Account {
   oauth_id       String?   // User ID from OAuth provider
   oauth_avatar   String?   // Avatar URL from OAuth provider
 
+  // Display name (customizable, defaults to OAuth display name)
+  display_name   String?   // User's preferred display name
+
   @@index([username])
   @@index([email])
   @@index([oauth_provider, oauth_id])

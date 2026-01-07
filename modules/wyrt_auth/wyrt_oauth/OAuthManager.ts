@@ -12,24 +12,43 @@ export interface OAuthSession {
     userId: number;
     accountId: number;
     username: string;
+    displayName: string;
     provider: string;
     providerId: string;
 }
 
-// Minimal Prisma interface for account operations
-interface PrismaAccount {
+// Minimal Prisma interface for account and game operations
+interface PrismaClient {
     account: {
         findFirst(args: any): Promise<any>;
         update(args: any): Promise<any>;
         create(args: any): Promise<any>;
     };
+    game: {
+        findFirst(args: any): Promise<any>;
+    };
+    $queryRaw<T>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
 }
+
+// Platform domains that are always allowed for redirects
+const PLATFORM_DOMAINS = [
+    'lairs.ai',
+    'www.lairs.ai',
+    'localhost',
+    '127.0.0.1',
+];
+
+// Additional patterns allowed in development
+const DEV_DOMAIN_PATTERNS = [
+    /\.local$/,           // *.local for local testing (e.g., example.local)
+    /^localhost:\d+$/,    // localhost with port
+];
 
 export class OAuthManager {
     private providers: Map<string, OAuthProvider> = new Map();
     private pendingStates: Map<string, { timestamp: number; redirectUrl?: string }> = new Map();
     private jwtSecret: string;
-    private prisma: PrismaAccount | null = null;
+    private prisma: PrismaClient | null = null;
 
     constructor(jwtSecret: string) {
         this.jwtSecret = jwtSecret;
@@ -41,9 +60,67 @@ export class OAuthManager {
     /**
      * Set the Prisma client (called after wyrt_data module is initialized)
      */
-    setPrisma(prisma: PrismaAccount): void {
+    setPrisma(prisma: PrismaClient): void {
         this.prisma = prisma;
         console.log('[OAuth] Database connection established');
+    }
+
+    /**
+     * Validate that a redirect URL is allowed
+     * Returns true if the URL is a platform domain or verified custom domain
+     */
+    async isValidRedirectUrl(redirectUrl: string): Promise<boolean> {
+        if (!redirectUrl) return true; // No redirect = use default
+
+        try {
+            const url = new URL(redirectUrl);
+            const hostname = url.hostname.toLowerCase();
+            const hostWithPort = url.host.toLowerCase(); // includes port if present
+
+            // Check platform domains (always allowed)
+            if (PLATFORM_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+                return true;
+            }
+
+            // Check development patterns (*.local, localhost:port)
+            if (process.env.NODE_ENV !== 'production') {
+                if (DEV_DOMAIN_PATTERNS.some(pattern => pattern.test(hostname) || pattern.test(hostWithPort))) {
+                    return true;
+                }
+            }
+
+            // Check *.lairs.ai subdomains (e.g., example.lairs.ai)
+            if (hostname.endsWith('.lairs.ai')) {
+                const subdomain = hostname.replace('.lairs.ai', '');
+                // Verify subdomain is registered to a game
+                if (this.prisma) {
+                    const game = await this.prisma.$queryRaw<any[]>`
+                        SELECT id FROM game
+                        WHERE branding->>'subdomain' = ${subdomain}
+                        LIMIT 1
+                    `;
+                    return game.length > 0;
+                }
+                return false;
+            }
+
+            // Check custom domains (e.g., example.com)
+            if (this.prisma) {
+                const game = await this.prisma.$queryRaw<any[]>`
+                    SELECT id FROM game
+                    WHERE branding->>'customDomain' = ${hostname}
+                    AND (branding->>'domainVerified')::boolean = true
+                    LIMIT 1
+                `;
+                return game.length > 0;
+            }
+
+            return false;
+        } catch (e) {
+            // Invalid URL
+            console.error('[OAuth] Invalid redirect URL:', redirectUrl, e);
+            return false;
+        }
     }
 
     /**
@@ -128,7 +205,7 @@ export class OAuthManager {
     /**
      * Create or get existing account for OAuth user
      */
-    async getOrCreateAccount(oauthUser: OAuthUser): Promise<{ accountId: number; username: string; isNew: boolean }> {
+    async getOrCreateAccount(oauthUser: OAuthUser): Promise<{ accountId: number; username: string; displayName: string; isNew: boolean }> {
         if (!this.prisma) {
             throw new Error('OAuth database not initialized. Ensure wyrt_data module is loaded first.');
         }
@@ -141,27 +218,38 @@ export class OAuthManager {
             },
             select: {
                 id: true,
-                username: true
+                username: true,
+                display_name: true
             }
         });
 
         if (existingAccount) {
-            // Update avatar if changed
+            // Update avatar if changed, and display_name if not customized
+            const updateData: any = {};
             if (oauthUser.avatar) {
+                updateData.oauth_avatar = oauthUser.avatar;
+            }
+            // Only update display_name if user hasn't customized it (still null or matches Discord)
+            if (!existingAccount.display_name && oauthUser.displayName) {
+                updateData.display_name = oauthUser.displayName;
+            }
+            if (Object.keys(updateData).length > 0) {
                 await this.prisma.account.update({
                     where: { id: existingAccount.id },
-                    data: { oauth_avatar: oauthUser.avatar }
+                    data: updateData
                 });
             }
             return {
                 accountId: existingAccount.id,
                 username: existingAccount.username,
+                displayName: existingAccount.display_name || oauthUser.displayName || existingAccount.username,
                 isNew: false,
             };
         }
 
         // Create new account
         const email = oauthUser.email || `${oauthUser.provider}_${oauthUser.id}@oauth.local`;
+        const displayName = oauthUser.displayName || oauthUser.username;
         const newAccount = await this.prisma.account.create({
             data: {
                 username: oauthUser.username,
@@ -169,11 +257,13 @@ export class OAuthManager {
                 password_hash: '',
                 oauth_provider: oauthUser.provider,
                 oauth_id: oauthUser.id,
-                oauth_avatar: oauthUser.avatar || null
+                oauth_avatar: oauthUser.avatar || null,
+                display_name: displayName
             },
             select: {
                 id: true,
-                username: true
+                username: true,
+                display_name: true
             }
         });
 
@@ -182,6 +272,7 @@ export class OAuthManager {
         return {
             accountId: newAccount.id,
             username: newAccount.username,
+            displayName: newAccount.display_name || displayName,
             isNew: true,
         };
     }
@@ -224,13 +315,14 @@ export class OAuthManager {
         const oauthUser = await provider.authenticate(code);
 
         // Create or get account
-        const { accountId, username, isNew } = await this.getOrCreateAccount(oauthUser);
+        const { accountId, username, displayName, isNew } = await this.getOrCreateAccount(oauthUser);
 
         // Create session
         const session: OAuthSession = {
             userId: accountId, // Note: userId is the account ID for now
             accountId: accountId,
             username: username,
+            displayName: displayName,
             provider: oauthUser.provider,
             providerId: oauthUser.id,
         };

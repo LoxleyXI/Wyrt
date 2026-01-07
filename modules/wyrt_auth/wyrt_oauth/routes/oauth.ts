@@ -16,7 +16,7 @@ export function createOAuthRouter(oauthManager: OAuthManager): Router {
      * Initiate OAuth flow
      * GET /oauth/:provider?redirect=/game
      */
-    router.get('/:provider', (req: Request, res: Response) => {
+    router.get('/:provider', async (req: Request, res: Response) => {
         const providerName = req.params.provider;
         const redirectUrl = req.query.redirect as string || '/';
 
@@ -25,6 +25,16 @@ export function createOAuthRouter(oauthManager: OAuthManager): Router {
             return res.status(404).json({
                 error: 'Unknown OAuth provider',
                 provider: providerName
+            });
+        }
+
+        // Validate redirect URL to prevent open redirects
+        const isValidRedirect = await oauthManager.isValidRedirectUrl(redirectUrl);
+        if (!isValidRedirect) {
+            console.warn(`[OAuth] Blocked invalid redirect URL: ${redirectUrl}`);
+            return res.status(400).json({
+                error: 'Invalid redirect URL',
+                message: 'Redirect URL must be a platform domain or verified custom domain'
             });
         }
 
