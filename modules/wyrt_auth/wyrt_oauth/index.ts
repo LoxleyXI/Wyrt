@@ -87,7 +87,7 @@ export default class WyrtOAuthModule implements IModule {
     name = 'wyrt_oauth';
     version = '1.0.0';
     description = 'OAuth authentication module - supports Discord, Google, Steam, and other providers';
-    dependencies = [];
+    dependencies = ['wyrt_data']; // Requires wyrt_data for database access
 
     private context!: ModuleContext;
     private oauthManager!: OAuthManager;
@@ -99,8 +99,8 @@ export default class WyrtOAuthModule implements IModule {
         // Load OAuth configuration
         this.config = this.loadConfig();
 
-        // Create OAuth manager with Prisma
-        this.oauthManager = new OAuthManager(this.config.jwtSecret, context.prisma);
+        // Create OAuth manager
+        this.oauthManager = new OAuthManager(this.config.jwtSecret);
 
         // Register enabled providers
         this.registerProviders();
@@ -109,6 +109,15 @@ export default class WyrtOAuthModule implements IModule {
     }
 
     async activate(): Promise<void> {
+        // Get database from wyrt_data module
+        const wyrtData = this.context.getModule('wyrt_data') as any;
+        if (wyrtData && typeof wyrtData.getDatabase === 'function') {
+            const prisma = wyrtData.getDatabase();
+            this.oauthManager.setPrisma(prisma);
+        } else {
+            console.warn('[wyrt_oauth] wyrt_data module not available - OAuth account creation will fail');
+        }
+
         // Register HTTP routes
         this.registerRoutes();
 

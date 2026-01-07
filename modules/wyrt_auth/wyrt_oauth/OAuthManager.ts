@@ -7,7 +7,6 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { OAuthProvider, OAuthUser } from './types/OAuthProvider.js';
-import type { PrismaClient } from '../../src/generated/prisma/index.js';
 
 export interface OAuthSession {
     userId: number;
@@ -17,18 +16,34 @@ export interface OAuthSession {
     providerId: string;
 }
 
+// Minimal Prisma interface for account operations
+interface PrismaAccount {
+    account: {
+        findFirst(args: any): Promise<any>;
+        update(args: any): Promise<any>;
+        create(args: any): Promise<any>;
+    };
+}
+
 export class OAuthManager {
     private providers: Map<string, OAuthProvider> = new Map();
     private pendingStates: Map<string, { timestamp: number; redirectUrl?: string }> = new Map();
     private jwtSecret: string;
-    private prisma: PrismaClient;
+    private prisma: PrismaAccount | null = null;
 
-    constructor(jwtSecret: string, prisma: PrismaClient) {
+    constructor(jwtSecret: string) {
         this.jwtSecret = jwtSecret;
-        this.prisma = prisma;
 
         // Clean up expired states every 5 minutes
         setInterval(() => this.cleanupExpiredStates(), 5 * 60 * 1000);
+    }
+
+    /**
+     * Set the Prisma client (called after wyrt_data module is initialized)
+     */
+    setPrisma(prisma: PrismaAccount): void {
+        this.prisma = prisma;
+        console.log('[OAuth] Database connection established');
     }
 
     /**
@@ -59,22 +74,33 @@ export class OAuthManager {
     }
 
     /**
-     * Validate a state token
+     * Validate and consume a state token
+     * Returns the redirect URL if valid, null if invalid/expired
      */
-    validateState(state: string): boolean {
+    validateAndConsumeState(state: string): { valid: boolean; redirectUrl?: string } {
         const data = this.pendingStates.get(state);
-        if (!data) return false;
+        if (!data) return { valid: false };
 
         // State tokens expire after 10 minutes
         const isValid = Date.now() - data.timestamp < 10 * 60 * 1000;
-        if (isValid) {
-            this.pendingStates.delete(state);
-        }
-        return isValid;
+
+        // Always delete the state (consumed or expired)
+        this.pendingStates.delete(state);
+
+        if (!isValid) return { valid: false };
+
+        return { valid: true, redirectUrl: data.redirectUrl };
     }
 
     /**
-     * Get redirect URL for a state token
+     * @deprecated Use validateAndConsumeState instead
+     */
+    validateState(state: string): boolean {
+        return this.validateAndConsumeState(state).valid;
+    }
+
+    /**
+     * @deprecated Use validateAndConsumeState instead
      */
     getRedirectUrl(state: string): string | undefined {
         return this.pendingStates.get(state)?.redirectUrl;
@@ -102,12 +128,13 @@ export class OAuthManager {
     /**
      * Create or get existing account for OAuth user
      */
-    /**
-     * Create or get existing account for OAuth user
-     */
     async getOrCreateAccount(oauthUser: OAuthUser): Promise<{ accountId: number; username: string; isNew: boolean }> {
+        if (!this.prisma) {
+            throw new Error('OAuth database not initialized. Ensure wyrt_data module is loaded first.');
+        }
+
         // Check if account exists with this OAuth provider
-        const existingAccount = await this.prisma.accounts.findFirst({
+        const existingAccount = await this.prisma.account.findFirst({
             where: {
                 oauth_provider: oauthUser.provider,
                 oauth_id: oauthUser.id
@@ -119,7 +146,13 @@ export class OAuthManager {
         });
 
         if (existingAccount) {
-            // Account exists
+            // Update avatar if changed
+            if (oauthUser.avatar) {
+                await this.prisma.account.update({
+                    where: { id: existingAccount.id },
+                    data: { oauth_avatar: oauthUser.avatar }
+                });
+            }
             return {
                 accountId: existingAccount.id,
                 username: existingAccount.username,
@@ -128,11 +161,12 @@ export class OAuthManager {
         }
 
         // Create new account
-        const newAccount = await this.prisma.accounts.create({
+        const email = oauthUser.email || `${oauthUser.provider}_${oauthUser.id}@oauth.local`;
+        const newAccount = await this.prisma.account.create({
             data: {
                 username: oauthUser.username,
-                email: oauthUser.email || `${oauthUser.provider}_${oauthUser.id}@oauth.local`,
-                password_hash: '', // OAuth accounts don't need passwords
+                email: email,
+                password_hash: '',
                 oauth_provider: oauthUser.provider,
                 oauth_id: oauthUser.id,
                 oauth_avatar: oauthUser.avatar || null

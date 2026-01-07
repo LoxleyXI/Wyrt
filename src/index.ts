@@ -278,13 +278,16 @@ function onConnection(wss: WebSocketServer) {
 //----------------------------------
 async function startServer() {
     try {
-        // Initialize everything
-        await initializeServer();
-
-        // Start HTTP server for authentication
+        // Start HTTP server BEFORE loading modules (so modules can register routes)
         const httpServer = new HttpServer(moduleContext, config.server.ports.web || 3001);
         (moduleContext as any).httpServer = httpServer;
         httpServer.start();
+
+        // Initialize everything (loads and activates modules)
+        await initializeServer();
+
+        // Register 404 fallback AFTER modules have registered their routes
+        httpServer.registerFallbackRoutes();
 
         // Start module web applications
         webManager = new WebManager(undefined, config);
@@ -335,9 +338,10 @@ async function serverClose() {
     // Shutdown module web applications first
     if (webManager) {
         webManager.shutdown();
-n    // Disconnect Prisma
-    await disconnectPrisma();
     }
+
+    // Disconnect Prisma
+    await disconnectPrisma();
 
     events.emit('serverShutdown');
 

@@ -102,11 +102,21 @@ export class WebManager {
 
     // Filter modules by environment variable or config
     // WYRT_MODULES env var takes precedence (comma-separated list of game modules)
-    // wyrt_* core modules are always loaded unless explicitly excluded
+    // WYRT_MODULES_EXCLUDE excludes specific modules (including wyrt_* core modules)
     const envModules = process.env.WYRT_MODULES?.split(',').map(m => m.trim()).filter(Boolean);
+    const envExclude = process.env.WYRT_MODULES_EXCLUDE?.split(',').map(m => m.trim()).filter(Boolean) || [];
     const configModules = this.config?.server?.modules?.enabled;
+    const configExclude = this.config?.server?.modules?.exclude || [];
     const enabledGames = envModules || (Array.isArray(configModules) ? configModules : null);
+    const excludedModules = [...envExclude, ...configExclude];
 
+    // First, filter by exclusion list
+    if (excludedModules.length > 0) {
+      console.log(`[WebManager] Excluding modules: ${excludedModules.join(', ')}`);
+      modules = modules.filter(module => !excludedModules.includes(module));
+    }
+
+    // Then, filter by enabled games (if specified)
     if (enabledGames && enabledGames.length > 0) {
       console.log(`[WebManager] Loading frontends for games: ${enabledGames.join(', ')}`);
       modules = modules.filter(module =>

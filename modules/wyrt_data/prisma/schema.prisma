@@ -698,6 +698,29 @@ model Achievement {
 // STATE TABLES - Track player progress (read-write at runtime)
 // =============================================================================
 
+/// Account - User authentication and profile
+/// OAuth accounts have oauth_provider and oauth_id set
+/// Password accounts have password_hash set
+model Account {
+  id             Int       @id @default(autoincrement())
+  username       String    @unique
+  email          String    @unique
+  password_hash  String    @default("")    // Empty for OAuth-only accounts
+  created_at     DateTime  @default(now())
+  last_login     DateTime?
+  status         String    @default("active") // 'active', 'suspended', 'banned'
+
+  // OAuth fields
+  oauth_provider String?   // 'discord', 'google', etc.
+  oauth_id       String?   // User ID from OAuth provider
+  oauth_avatar   String?   // Avatar URL from OAuth provider
+
+  @@index([username])
+  @@index([email])
+  @@index([oauth_provider, oauth_id])
+  @@map("accounts")
+}
+
 /// Character - a player's character in a specific game
 model Character {
   id          String   @id @default(uuid())

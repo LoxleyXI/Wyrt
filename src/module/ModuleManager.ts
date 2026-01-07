@@ -151,11 +151,21 @@ export class ModuleManager extends EventEmitter {
 
         // Filter modules by environment variable or config
         // WYRT_MODULES env var takes precedence (comma-separated list of game modules)
-        // wyrt_* core modules are always loaded unless explicitly excluded
+        // WYRT_MODULES_EXCLUDE excludes specific modules (including wyrt_* core modules)
         const envModules = process.env.WYRT_MODULES?.split(',').map(m => m.trim()).filter(Boolean);
+        const envExclude = process.env.WYRT_MODULES_EXCLUDE?.split(',').map(m => m.trim()).filter(Boolean) || [];
         const configModules = this.context.config?.server?.modules?.enabled;
+        const configExclude = this.context.config?.server?.modules?.exclude || [];
         const enabledGames = envModules || (Array.isArray(configModules) ? configModules : null);
+        const excludedModules = [...envExclude, ...configExclude];
 
+        // First, filter by exclusion list
+        if (excludedModules.length > 0) {
+            this.logger.info(`Excluding modules: ${excludedModules.join(', ')}`);
+            modulePaths = modulePaths.filter(m => !excludedModules.includes(m.name));
+        }
+
+        // Then, filter by enabled games (if specified)
         if (enabledGames && enabledGames.length > 0) {
             this.logger.info(`Loading games: ${enabledGames.join(', ')}`);
             modulePaths = modulePaths.filter(m =>

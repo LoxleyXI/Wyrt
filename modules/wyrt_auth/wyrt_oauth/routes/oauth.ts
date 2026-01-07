@@ -62,8 +62,9 @@ export function createOAuthRouter(oauthManager: OAuthManager): Router {
             return res.redirect('/?error=oauth_invalid_request');
         }
 
-        // Validate CSRF state token
-        if (!oauthManager.validateState(state)) {
+        // Validate CSRF state token and get redirect URL
+        const stateData = oauthManager.validateAndConsumeState(state);
+        if (!stateData.valid) {
             console.error('[OAuth] Invalid or expired state token');
             return res.redirect('/?error=oauth_invalid_state');
         }
@@ -78,7 +79,7 @@ export function createOAuthRouter(oauthManager: OAuthManager): Router {
             console.log(`[OAuth] ${isNewAccount ? 'Created new account' : 'Logged in'} for ${session.username} via ${providerName}`);
 
             // Get original redirect URL from state
-            const redirectUrl = oauthManager.getRedirectUrl(state) || '/';
+            const redirectUrl = stateData.redirectUrl || '/';
 
             // Build final redirect with token
             const separator = redirectUrl.includes('?') ? '&' : '?';

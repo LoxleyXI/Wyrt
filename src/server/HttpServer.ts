@@ -13,6 +13,10 @@ export class HttpServer {
         this.context = context;
         this.port = port;
         this.app = express();
+
+        // Expose HTTP server globally for modules (e.g., wyrt_oauth)
+        (globalThis as any).httpServer = this.app;
+
         this.setupMiddleware();
         this.setupRoutes();
     }
@@ -317,11 +321,19 @@ export class HttpServer {
             }
         });
 
-        // 404 handler
+        // Note: 404 handler is registered separately via registerFallbackRoutes()
+        // after all modules have had a chance to register their routes
+    }
+
+    /**
+     * Register fallback routes (404 handler)
+     * Should be called AFTER all modules have registered their routes
+     */
+    public registerFallbackRoutes(): void {
         this.app.use((req: Request, res: Response) => {
-            res.status(404).json({ 
-                success: false, 
-                message: 'Endpoint not found' 
+            res.status(404).json({
+                success: false,
+                message: 'Endpoint not found'
             });
         });
     }
