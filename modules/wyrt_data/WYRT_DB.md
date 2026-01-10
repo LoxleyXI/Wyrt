@@ -22,35 +22,35 @@ Every piece of content is scoped to a `Game`. Games can be standalone or hierarc
 
 ```
 Wyrt Engine
-├── MyGame (type: 'game', standalone)
-├── Lairs (type: 'platform', hosts sub-games)
-│   ├── Fantasy MUD (type: 'lair', parentId: lairs)
-│   ├── Sci-Fi Adventure (type: 'lair', parentId: lairs)
-│   └── Horror Escape (type: 'lair', parentId: lairs)
-└── Wyrt AI Generated Games...
+├── MyRPG (type: 'game', standalone)
+├── GamePlatform (type: 'platform', hosts sub-games)
+│   ├── Fantasy MUD (type: 'lair', parentId: platform)
+│   ├── Sci-Fi Adventure (type: 'lair', parentId: platform)
+│   └── Horror Escape (type: 'lair', parentId: platform)
+└── ...
 ```
 
 ```sql
 -- Standalone game
 INSERT INTO "Game" (slug, name, type) VALUES
-  ('my_game', 'MyGame', 'game');
+  ('my-rpg', 'My RPG', 'game');
 
 -- Platform that hosts sub-games
 INSERT INTO "Game" (slug, name, type) VALUES
-  ('lairs', 'Lairs', 'platform');
+  ('my-platform', 'My Platform', 'platform');
 
--- Sub-game (lair) within the platform
+-- Sub-game within the platform
 INSERT INTO "Game" (slug, name, type, "parentId", "ownerId") VALUES
   ('fantasy-mud', 'Fantasy MUD', 'lair',
-   (SELECT id FROM "Game" WHERE slug = 'lairs'),
+   (SELECT id FROM "Game" WHERE slug = 'my-platform'),
    'user-123');
 ```
 
 **Game Types:**
 | Type | Description | Example |
 |------|-------------|---------|
-| `game` | Standalone game | MyGame |
-| `platform` | Hosts multiple sub-games | Lairs |
+| `game` | Standalone game | My RPG |
+| `platform` | Hosts multiple sub-games | Game Platform |
 | `lair` | Sub-game within a platform | A user-created MUD |
 | `instance` | Per-player/party copy | Dungeon instance |
 
@@ -122,8 +122,8 @@ The container for all game content.
 
 ```typescript
 {
-  slug: "my_game",
-  name: "MyGame",
+  slug: "my-rpg",
+  name: "My RPG",
   settings: {
     combatMode: "real_time",
     tickInterval: 2000,

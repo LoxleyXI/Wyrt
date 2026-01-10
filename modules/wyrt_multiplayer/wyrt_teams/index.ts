@@ -61,7 +61,7 @@ export default class WyrtTeamsModule implements IModule {
     /**
      * Create a new team manager for a specific game
      *
-     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'ctf')
+     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'battle_arena')
      * @returns The created team manager
      */
     createTeamManager(gameId: string): TeamManager {

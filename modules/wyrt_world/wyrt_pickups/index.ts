@@ -78,7 +78,7 @@ export default class WyrtPickupsModule implements IModule {
     /**
      * Create a new pickup manager for a specific game
      *
-     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'ctf')
+     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'battle_arena')
      * @returns The created pickup manager
      */
     createPickupManager(gameId: string): PickupManager {

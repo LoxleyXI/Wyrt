@@ -66,7 +66,7 @@ export default class WyrtProjectilesModule implements IModule {
     /**
      * Create a new projectile manager for a specific game
      *
-     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'ctf')
+     * @param gameId - Unique identifier for the game (e.g., 'my_game', 'battle_arena')
      * @returns The created projectile manager
      */
     createProjectileManager(gameId: string): ProjectileManager {

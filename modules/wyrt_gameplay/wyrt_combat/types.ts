@@ -24,7 +24,7 @@ export interface ICombatConfig {
   gameId: string;
 
   /**
-   * Combat mode: turn-based (MyGame) or real-time (Lairs)
+   * Combat mode: turn-based or real-time
    * Default: 'turn_based'
    */
   mode?: CombatMode;

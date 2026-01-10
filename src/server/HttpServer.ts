@@ -58,7 +58,7 @@ export class HttpServer {
         this.app.get('/health', (req: Request, res: Response) => {
             res.json({
                 status: 'ok',
-                server: 'Wyrt/MyGame',
+                server: 'Wyrt',
                 timestamp: Date.now()
             });
         });

@@ -31,7 +31,7 @@ export class ModuleRequestTypes {
 
     /**
      * Register a handler for a specific game module
-     * @param gameId - Module name (e.g., 'my_game', 'my_game')
+     * @param gameId - Module name (e.g., 'my_game', 'my_rpg')
      * @param type - Handler type (e.g., 'selectCharacter', 'move')
      * @param handler - The handler implementation
      */

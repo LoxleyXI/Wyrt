@@ -28,23 +28,23 @@ datasource db {
 // GAME CONTAINER
 // =============================================================================
 
-/// The top-level game container. Each game (MyGame, Lairs, etc.) is a record.
+/// The top-level game container. Each game is a record.
 /// All content and player state is scoped to a game.
 ///
 /// Supports hierarchical games:
-/// - Standalone games: { slug: 'my_game', type: 'game', parentId: null }
-/// - Platforms: { slug: 'lairs', type: 'platform', parentId: null }
-/// - Sub-games/lairs: { slug: 'fantasy-mud', type: 'lair', parentId: lairs.id }
+/// - Standalone games: { slug: 'my-rpg', type: 'game', parentId: null }
+/// - Platforms: { slug: 'my-platform', type: 'platform', parentId: null }
+/// - Sub-games: { slug: 'fantasy-mud', type: 'lair', parentId: platform.id }
 model Game {
   id          String   @id @default(uuid())
-  slug        String   @unique              // 'my_game', 'lairs', 'fantasy-mud'
-  name        String                        // "MyGame"
+  slug        String   @unique              // 'my-rpg', 'my-platform', 'fantasy-mud'
+  name        String                        // "My RPG"
   description String?
   version     String   @default("1.0.0")
 
   // Game type and hierarchy
-  // 'game' = standalone game (MyGame)
-  // 'platform' = hosts sub-games (Lairs)
+  // 'game' = standalone game
+  // 'platform' = hosts sub-games
   // 'lair' = sub-game within a platform
   // 'instance' = per-player/party instance of a game
   type        String   @default("game")

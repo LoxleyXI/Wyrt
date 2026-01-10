@@ -332,7 +332,7 @@ export class SharedAuthService extends EventEmitter {
     private getPlayerInstances(playerId: string): string[] {
         // Get list of instances player has access to
         // This would typically be loaded from database
-        return ["my_game", "demo_game", "arena"];
+        return ["main", "lobby", "arena"];
     }
     
     private async loadPlayerPermissions(playerId: string): Promise<string[]> {

@@ -7,7 +7,7 @@
  * To seed a specific game:
  *   npx tsx modules/<game>/scripts/seed.ts
  *
- * For MyGame:
+ * Example:
  *   npx tsx modules/my_game/scripts/seed.ts
  */
 import { PrismaClient } from '@prisma/client';
@@ -35,7 +35,7 @@ async function main() {
   } else {
     console.log('No games found in database.');
     console.log('\nTo seed a game, run its module seeder:');
-    console.log('  npx tsx modules/my_game/scripts/seed.ts');
+    console.log('  npx tsx modules/<game>/scripts/seed.ts');
   }
 
   console.log('\n============================================================');

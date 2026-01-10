@@ -21,11 +21,11 @@
  *
  * // Load all items for a game
  * const items = await db.item.findMany({
- *   where: { gameId: 'my_game' }
+ *   where: { gameId: 'my-game' }
  * });
  *
  * // Get item by slug
- * const sword = await dataModule.getItem('my_game', 'iron_sword');
+ * const sword = await dataModule.getItem('my-game', 'iron_sword');
  * ```
  */
 
@@ -134,9 +134,9 @@ export default class DataModule implements IModule {
   }
 
   /**
-   * Get a platform and its lairs.
+   * Get a platform and its child games.
    */
-  async getPlatformWithLairs(platformSlug: string) {
+  async getPlatformWithChildren(platformSlug: string) {
     return this.prisma!.game.findUnique({
       where: { slug: platformSlug },
       include: {
@@ -149,9 +149,9 @@ export default class DataModule implements IModule {
   }
 
   /**
-   * List lairs for a platform.
+   * List child games for a platform.
    */
-  async listLairs(platformId: string, options: { publicOnly?: boolean; ownerId?: string } = {}) {
+  async listChildGames(platformId: string, options: { publicOnly?: boolean; ownerId?: string } = {}) {
     return this.prisma!.game.findMany({
       where: {
         parentId: platformId,
@@ -165,9 +165,9 @@ export default class DataModule implements IModule {
   }
 
   /**
-   * Create a new lair under a platform.
+   * Create a new child game under a platform.
    */
-  async createLair(platformId: string, data: {
+  async createChildGame(platformId: string, data: {
     slug: string;
     name: string;
     description?: string;
