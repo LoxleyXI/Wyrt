@@ -67,7 +67,7 @@ import { IModule } from '../../../src/module/IModule.js';
 import { ModuleContext } from '../../../src/module/ModuleContext.js';
 import { OAuthManager } from './OAuthManager.js';
 import { DiscordProvider } from './providers/DiscordProvider.js';
-import { createOAuthRouter } from './routes/oauth.js';
+import { createOAuthRouter, createSessionRouter } from './routes/oauth.js';
 import type { Express } from 'express';
 
 interface OAuthConfig {
@@ -191,7 +191,12 @@ export default class WyrtOAuthModule implements IModule {
         const oauthRouter = createOAuthRouter(this.oauthManager);
         httpServer.use('/oauth', oauthRouter);
 
+        // Create and register session router (for /api/session, /api/logout)
+        const sessionRouter = createSessionRouter(this.oauthManager);
+        httpServer.use('/api', sessionRouter);
+
         console.log('[wyrt_oauth] Registered OAuth routes: /oauth/:provider, /oauth/:provider/callback');
+        console.log('[wyrt_oauth] Registered session routes: /api/session, /api/logout');
     }
 
     /**
