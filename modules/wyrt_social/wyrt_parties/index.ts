@@ -64,8 +64,8 @@ export default class WyrtPartiesModule implements IModule {
 
         // Get Prisma client from wyrt_data module
         const dataModule = context.getModule('wyrt_data');
-        if (dataModule && typeof dataModule.getPrisma === 'function') {
-            this.prisma = dataModule.getPrisma();
+        if (dataModule && typeof dataModule.getDatabase === 'function') {
+            this.prisma = dataModule.getDatabase();
         }
 
         if (!this.prisma) {
