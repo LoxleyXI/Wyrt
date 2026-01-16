@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { ModuleContext } from '../module/ModuleContext';
 import { AuthPayload } from './AuthManager';
 import colors from 'colors/safe';
@@ -45,6 +46,9 @@ export class HttpServer {
 
         // Parse JSON bodies
         this.app.use(express.json());
+
+        // Parse cookies
+        this.app.use(cookieParser());
 
         // Request logging
         this.app.use((req, res, next) => {

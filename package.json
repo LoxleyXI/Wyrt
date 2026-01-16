@@ -15,6 +15,7 @@
   "description": "An MMO Engine",
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "cookie-parser": "^1.4.7",
     "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "bcrypt": "^6.0.0",
@@ -36,6 +37,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/js-yaml": "^4.0.9",
