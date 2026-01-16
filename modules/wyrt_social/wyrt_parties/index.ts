@@ -133,5 +133,6 @@ export default class WyrtPartiesModule implements IModule {
     }
 }
 
-// Re-export types for convenience
-export { PartyManager, Party, PartyMember, PartyInvite, PartyAPI, LootItem, CharacterNameResolver } from "./systems/PartyManager";
+// Re-export class and types
+export { PartyManager } from "./systems/PartyManager";
+export type { Party, PartyMember, PartyInvite, PartyAPI, LootItem, CharacterNameResolver } from "./systems/PartyManager";
