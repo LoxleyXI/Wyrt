@@ -186,6 +186,7 @@ export function createSessionRouter(oauthManager: OAuthManager): Router {
 
             res.json({
                 valid: true,
+                token: token, // Return token for WebSocket authentication
                 user: {
                     id: session.accountId,
                     username: session.username,
