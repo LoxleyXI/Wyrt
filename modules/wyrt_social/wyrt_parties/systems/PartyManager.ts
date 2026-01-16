@@ -1,28 +1,32 @@
-import { ModuleContext } from "../../../src/module/ModuleContext";
+import { PrismaClient, Party as PrismaParty, PartyMember as PrismaMember, PartyInvite as PrismaInvite } from "@prisma/client";
+import { EventEmitter } from "../../../src/events/EventEmitter";
 
 export interface Party {
-    partyId: number;
-    leaderId: number;
-    leaderName: string;
+    id: string;
+    leaderId: string;
+    leaderName?: string;
+    lootMode: string;
     maxMembers: number;
     createdAt: Date;
 }
 
 export interface PartyMember {
-    characterId: number;
-    characterName: string;
+    id: string;
+    characterId: string;
+    characterName?: string;
     isLeader: boolean;
     joinedAt: Date;
-    isOnline: boolean;
+    isOnline?: boolean;
 }
 
 export interface PartyInvite {
-    inviteId: number;
-    partyId: number;
-    characterId: number;
-    invitedBy: number;
-    invitedByName: string;
-    status: 'pending' | 'accepted' | 'rejected';
+    id: string;
+    partyId: string;
+    characterId: string;
+    invitedBy: string;
+    invitedByName?: string;
+    status: string;
+    expiresAt: Date;
     createdAt: Date;
 }
 
@@ -32,36 +36,68 @@ export interface LootItem {
 }
 
 export interface PartyAPI {
-    createParty(characterId: number): Promise<number | null>;
-    disbandParty(characterId: number, partyId: number): Promise<boolean>;
-    inviteToParty(characterId: number, partyId: number, targetCharacterId: number): Promise<boolean>;
-    acceptPartyInvite(characterId: number, inviteId: number): Promise<boolean>;
-    rejectPartyInvite(characterId: number, inviteId: number): Promise<boolean>;
-    leaveParty(characterId: number, partyId: number): Promise<boolean>;
-    kickFromParty(characterId: number, partyId: number, targetCharacterId: number): Promise<boolean>;
-    transferLeadership(characterId: number, partyId: number, targetCharacterId: number): Promise<boolean>;
-    getParty(partyId: number): Promise<Party | null>;
-    getPartyMembers(partyId: number): Promise<PartyMember[]>;
-    getCharacterParty(characterId: number): Promise<Party | null>;
-    getPartyInvites(characterId: number): Promise<PartyInvite[]>;
-    distributeXP(partyId: number, totalXP: number): Promise<void>;
-    distributeLoot(partyId: number, items: LootItem[]): Promise<void>;
+    createParty(characterId: string): Promise<Party | null>;
+    disbandParty(characterId: string): Promise<boolean>;
+    inviteToParty(characterId: string, targetCharacterId: string): Promise<boolean>;
+    acceptPartyInvite(characterId: string, inviteId: string): Promise<boolean>;
+    declinePartyInvite(characterId: string, inviteId: string): Promise<boolean>;
+    leaveParty(characterId: string): Promise<boolean>;
+    kickFromParty(characterId: string, targetCharacterId: string): Promise<boolean>;
+    transferLeadership(characterId: string, targetCharacterId: string): Promise<boolean>;
+    getParty(partyId: string): Promise<Party | null>;
+    getPartyMembers(partyId: string): Promise<PartyMember[]>;
+    getCharacterParty(characterId: string): Promise<Party | null>;
+    getPartyInvites(characterId: string): Promise<PartyInvite[]>;
+    distributeXP(partyId: string, totalXP: number): Promise<void>;
+    distributeLoot(partyId: string, items: LootItem[]): Promise<void>;
+    setLootMode(characterId: string, mode: string): Promise<boolean>;
 }
 
-export class PartyManager {
-    private context: ModuleContext;
-    private gameId: string;
-    private partiesTable: string;
-    private membersTable: string;
-    private invitesTable: string;
-    private maxPartySize = 5;
+// Logger interface to avoid circular dependency
+interface Logger {
+    info(message: string): void;
+    warn(message: string): void;
+    error(message: string): void;
+    debug(message: string): void;
+}
 
-    constructor(context: ModuleContext, gameId: string) {
-        this.context = context;
+// Character name resolver function type
+export type CharacterNameResolver = (characterId: string) => Promise<string | undefined>;
+
+export class PartyManager {
+    private prisma: PrismaClient;
+    private events: EventEmitter;
+    private logger: Logger;
+    private gameId: string;
+    private maxPartySize = 5;
+    private inviteExpirationMinutes = 5;
+    private characterNameResolver?: CharacterNameResolver;
+
+    constructor(
+        prisma: PrismaClient,
+        events: EventEmitter,
+        logger: Logger,
+        gameId: string,
+        options?: {
+            maxPartySize?: number;
+            inviteExpirationMinutes?: number;
+            characterNameResolver?: CharacterNameResolver;
+        }
+    ) {
+        this.prisma = prisma;
+        this.events = events;
+        this.logger = logger;
         this.gameId = gameId;
-        this.partiesTable = `${gameId}_parties`;
-        this.membersTable = `${gameId}_party_members`;
-        this.invitesTable = `${gameId}_party_invites`;
+
+        if (options?.maxPartySize) {
+            this.maxPartySize = options.maxPartySize;
+        }
+        if (options?.inviteExpirationMinutes) {
+            this.inviteExpirationMinutes = options.inviteExpirationMinutes;
+        }
+        if (options?.characterNameResolver) {
+            this.characterNameResolver = options.characterNameResolver;
+        }
     }
 
     getAPI(): PartyAPI {
@@ -70,7 +106,7 @@ export class PartyManager {
             disbandParty: this.disbandParty.bind(this),
             inviteToParty: this.inviteToParty.bind(this),
             acceptPartyInvite: this.acceptPartyInvite.bind(this),
-            rejectPartyInvite: this.rejectPartyInvite.bind(this),
+            declinePartyInvite: this.declinePartyInvite.bind(this),
             leaveParty: this.leaveParty.bind(this),
             kickFromParty: this.kickFromParty.bind(this),
             transferLeadership: this.transferLeadership.bind(this),
@@ -79,453 +115,595 @@ export class PartyManager {
             getCharacterParty: this.getCharacterParty.bind(this),
             getPartyInvites: this.getPartyInvites.bind(this),
             distributeXP: this.distributeXP.bind(this),
-            distributeLoot: this.distributeLoot.bind(this)
+            distributeLoot: this.distributeLoot.bind(this),
+            setLootMode: this.setLootMode.bind(this)
         };
     }
 
-    async createParty(characterId: number): Promise<number | null> {
+    private async resolveCharacterName(characterId: string): Promise<string | undefined> {
+        if (this.characterNameResolver) {
+            return this.characterNameResolver(characterId);
+        }
+        return undefined;
+    }
+
+    async createParty(characterId: string): Promise<Party | null> {
         try {
             // Check if character is already in a party
             const existingParty = await this.getCharacterParty(characterId);
             if (existingParty) {
-                this.context.logger.warn(`Character ${characterId} is already in party ${existingParty.partyId}`);
+                this.logger.warn(`Character ${characterId} is already in party ${existingParty.id}`);
                 return null;
             }
 
-            // Create party
-            const result = await this.context.db.query(
-                `INSERT INTO ${this.partiesTable} (leader_id, created_at)
-                 VALUES (?, NOW())`,
-                [characterId]
-            ) as any;
-
-            const partyId = result[0].insertId;
-
-            // Add creator as party member
-            await this.context.db.query(
-                `INSERT INTO ${this.membersTable} (party_id, character_id, joined_at)
-                 VALUES (?, ?, NOW())`,
-                [partyId, characterId]
-            );
-
-            // Emit event
-            this.context.events.emit('parties:created', {
-                partyId,
-                leaderId: characterId
+            // Create party with leader as first member
+            const party = await this.prisma.party.create({
+                data: {
+                    gameId: this.gameId,
+                    leaderId: characterId,
+                    lootMode: 'ffa',
+                    members: {
+                        create: {
+                            characterId: characterId
+                        }
+                    }
+                },
+                include: {
+                    members: true
+                }
             });
 
-            return partyId;
+            // Emit event
+            this.events.emit('parties:created', {
+                partyId: party.id,
+                leaderId: characterId,
+                gameId: this.gameId
+            });
+
+            const leaderName = await this.resolveCharacterName(characterId);
+
+            return {
+                id: party.id,
+                leaderId: party.leaderId,
+                leaderName,
+                lootMode: party.lootMode,
+                maxMembers: this.maxPartySize,
+                createdAt: party.createdAt
+            };
         } catch (error) {
-            this.context.logger.error(`Error creating party: ${error}`);
+            this.logger.error(`Error creating party: ${error}`);
             return null;
         }
     }
 
-    async disbandParty(characterId: number, partyId: number): Promise<boolean> {
+    async disbandParty(characterId: string): Promise<boolean> {
         try {
+            // Get character's party
+            const party = await this.getCharacterParty(characterId);
+            if (!party) {
+                this.logger.warn(`Character ${characterId} is not in a party`);
+                return false;
+            }
+
             // Check if character is party leader
-            const party = await this.getParty(partyId);
-            if (!party || party.leaderId !== characterId) {
-                this.context.logger.warn(`Character ${characterId} is not party leader of ${partyId}`);
+            if (party.leaderId !== characterId) {
+                this.logger.warn(`Character ${characterId} is not party leader of ${party.id}`);
                 return false;
             }
 
             // Delete party (cascade will delete members and invites)
-            await this.context.db.query(
-                `DELETE FROM ${this.partiesTable} WHERE id = ?`,
-                [partyId]
-            );
+            await this.prisma.party.delete({
+                where: { id: party.id }
+            });
 
             // Emit event
-            this.context.events.emit('parties:disbanded', {
-                partyId,
-                leaderId: characterId
+            this.events.emit('parties:disbanded', {
+                partyId: party.id,
+                leaderId: characterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error disbanding party: ${error}`);
+            this.logger.error(`Error disbanding party: ${error}`);
             return false;
         }
     }
 
-    async inviteToParty(characterId: number, partyId: number, targetCharacterId: number): Promise<boolean> {
+    async inviteToParty(characterId: string, targetCharacterId: string): Promise<boolean> {
         try {
+            // Get inviter's party
+            const party = await this.getCharacterParty(characterId);
+            if (!party) {
+                this.logger.warn(`Character ${characterId} is not in a party`);
+                return false;
+            }
+
             // Check if inviter is party leader
-            const party = await this.getParty(partyId);
-            if (!party || party.leaderId !== characterId) {
-                this.context.logger.warn(`Character ${characterId} is not party leader`);
+            if (party.leaderId !== characterId) {
+                this.logger.warn(`Character ${characterId} is not party leader`);
                 return false;
             }
 
             // Check if target is already in a party
             const targetParty = await this.getCharacterParty(targetCharacterId);
             if (targetParty) {
-                this.context.logger.warn(`Target ${targetCharacterId} is already in party ${targetParty.partyId}`);
+                this.logger.warn(`Target ${targetCharacterId} is already in party ${targetParty.id}`);
                 return false;
             }
 
             // Check if party is full
-            const members = await this.getPartyMembers(partyId);
+            const members = await this.getPartyMembers(party.id);
             if (members.length >= this.maxPartySize) {
-                this.context.logger.warn(`Party ${partyId} is full`);
+                this.logger.warn(`Party ${party.id} is full`);
                 return false;
             }
 
-            // Check if target already has pending invite
-            const [existingRows] = await this.context.db.query(
-                `SELECT id FROM ${this.invitesTable}
-                 WHERE party_id = ? AND character_id = ? AND status = 'pending'`,
-                [partyId, targetCharacterId]
-            ) as any;
+            // Check if target already has pending invite from this party
+            const existingInvite = await this.prisma.partyInvite.findFirst({
+                where: {
+                    partyId: party.id,
+                    characterId: targetCharacterId,
+                    status: 'pending'
+                }
+            });
 
-            if (existingRows.length > 0) {
-                this.context.logger.warn(`Target ${targetCharacterId} already has pending invite`);
+            if (existingInvite) {
+                this.logger.warn(`Target ${targetCharacterId} already has pending invite`);
                 return false;
             }
 
             // Create invite
-            await this.context.db.query(
-                `INSERT INTO ${this.invitesTable} (party_id, character_id, invited_by, status, created_at)
-                 VALUES (?, ?, ?, 'pending', NOW())`,
-                [partyId, targetCharacterId, characterId]
-            );
+            const expiresAt = new Date(Date.now() + this.inviteExpirationMinutes * 60 * 1000);
+
+            await this.prisma.partyInvite.create({
+                data: {
+                    partyId: party.id,
+                    characterId: targetCharacterId,
+                    invitedBy: characterId,
+                    status: 'pending',
+                    expiresAt
+                }
+            });
 
             // Emit event
-            this.context.events.emit('parties:inviteSent', {
-                partyId,
+            this.events.emit('parties:inviteSent', {
+                partyId: party.id,
                 targetCharacterId,
-                invitedBy: characterId
+                invitedBy: characterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error inviting to party: ${error}`);
+            this.logger.error(`Error inviting to party: ${error}`);
             return false;
         }
     }
 
-    async acceptPartyInvite(characterId: number, inviteId: number): Promise<boolean> {
+    async acceptPartyInvite(characterId: string, inviteId: string): Promise<boolean> {
         try {
             // Get invite
-            const [rows] = await this.context.db.query(
-                `SELECT * FROM ${this.invitesTable}
-                 WHERE id = ? AND character_id = ? AND status = 'pending'`,
-                [inviteId, characterId]
-            ) as any;
+            const invite = await this.prisma.partyInvite.findFirst({
+                where: {
+                    id: inviteId,
+                    characterId: characterId,
+                    status: 'pending'
+                },
+                include: {
+                    party: true
+                }
+            });
 
-            if (rows.length === 0) {
-                this.context.logger.warn(`Invite ${inviteId} not found for character ${characterId}`);
+            if (!invite) {
+                this.logger.warn(`Invite ${inviteId} not found for character ${characterId}`);
                 return false;
             }
 
-            const invite = rows[0];
-            const partyId = invite.party_id;
+            // Check if invite is expired
+            if (invite.expiresAt < new Date()) {
+                await this.prisma.partyInvite.update({
+                    where: { id: inviteId },
+                    data: { status: 'expired' }
+                });
+                this.logger.warn(`Invite ${inviteId} has expired`);
+                return false;
+            }
 
             // Check if character is already in a party
             const existingParty = await this.getCharacterParty(characterId);
             if (existingParty) {
-                this.context.logger.warn(`Character ${characterId} is already in party ${existingParty.partyId}`);
+                this.logger.warn(`Character ${characterId} is already in party ${existingParty.id}`);
                 return false;
             }
 
             // Check if party is full
-            const members = await this.getPartyMembers(partyId);
+            const members = await this.getPartyMembers(invite.partyId);
             if (members.length >= this.maxPartySize) {
-                this.context.logger.warn(`Party ${partyId} is full`);
+                this.logger.warn(`Party ${invite.partyId} is full`);
                 return false;
             }
 
-            // Update invite status
-            await this.context.db.query(
-                `UPDATE ${this.invitesTable} SET status = 'accepted' WHERE id = ?`,
-                [inviteId]
-            );
-
-            // Add member to party
-            await this.context.db.query(
-                `INSERT INTO ${this.membersTable} (party_id, character_id, joined_at)
-                 VALUES (?, ?, NOW())`,
-                [partyId, characterId]
-            );
+            // Update invite status and add member in transaction
+            await this.prisma.$transaction([
+                this.prisma.partyInvite.update({
+                    where: { id: inviteId },
+                    data: { status: 'accepted' }
+                }),
+                this.prisma.partyMember.create({
+                    data: {
+                        partyId: invite.partyId,
+                        characterId: characterId
+                    }
+                })
+            ]);
 
             // Emit event
-            this.context.events.emit('parties:memberJoined', {
-                partyId,
+            this.events.emit('parties:memberJoined', {
+                partyId: invite.partyId,
                 characterId,
-                inviteId
+                inviteId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error accepting party invite: ${error}`);
+            this.logger.error(`Error accepting party invite: ${error}`);
             return false;
         }
     }
 
-    async rejectPartyInvite(characterId: number, inviteId: number): Promise<boolean> {
+    async declinePartyInvite(characterId: string, inviteId: string): Promise<boolean> {
         try {
-            const result = await this.context.db.query(
-                `UPDATE ${this.invitesTable} SET status = 'rejected'
-                 WHERE id = ? AND character_id = ? AND status = 'pending'`,
-                [inviteId, characterId]
-            ) as any;
+            const result = await this.prisma.partyInvite.updateMany({
+                where: {
+                    id: inviteId,
+                    characterId: characterId,
+                    status: 'pending'
+                },
+                data: { status: 'declined' }
+            });
 
-            if (result[0].affectedRows === 0) {
-                this.context.logger.warn(`Invite ${inviteId} not found for character ${characterId}`);
+            if (result.count === 0) {
+                this.logger.warn(`Invite ${inviteId} not found for character ${characterId}`);
                 return false;
             }
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error rejecting party invite: ${error}`);
+            this.logger.error(`Error declining party invite: ${error}`);
             return false;
         }
     }
 
-    async leaveParty(characterId: number, partyId: number): Promise<boolean> {
+    async leaveParty(characterId: string): Promise<boolean> {
         try {
-            const party = await this.getParty(partyId);
+            const party = await this.getCharacterParty(characterId);
             if (!party) {
+                this.logger.warn(`Character ${characterId} is not in a party`);
                 return false;
             }
 
             // If leader leaves, transfer leadership or disband if solo
             if (party.leaderId === characterId) {
-                const members = await this.getPartyMembers(partyId);
+                const members = await this.getPartyMembers(party.id);
                 if (members.length === 1) {
                     // Solo party, just disband
-                    await this.disbandParty(characterId, partyId);
-                    return true;
+                    return await this.disbandParty(characterId);
                 } else {
                     // Transfer leadership to next member
                     const nextLeader = members.find(m => m.characterId !== characterId);
                     if (nextLeader) {
-                        await this.context.db.query(
-                            `UPDATE ${this.partiesTable} SET leader_id = ? WHERE id = ?`,
-                            [nextLeader.characterId, partyId]
-                        );
+                        await this.prisma.party.update({
+                            where: { id: party.id },
+                            data: { leaderId: nextLeader.characterId }
+                        });
 
                         // Emit leadership transfer event
-                        this.context.events.emit('parties:leadershipTransferred', {
-                            partyId,
+                        this.events.emit('parties:leadershipTransferred', {
+                            partyId: party.id,
                             oldLeaderId: characterId,
-                            newLeaderId: nextLeader.characterId
+                            newLeaderId: nextLeader.characterId,
+                            gameId: this.gameId
                         });
                     }
                 }
             }
 
             // Remove member
-            const result = await this.context.db.query(
-                `DELETE FROM ${this.membersTable}
-                 WHERE party_id = ? AND character_id = ?`,
-                [partyId, characterId]
-            ) as any;
+            const result = await this.prisma.partyMember.deleteMany({
+                where: {
+                    partyId: party.id,
+                    characterId: characterId
+                }
+            });
 
-            if (result[0].affectedRows === 0) {
-                this.context.logger.warn(`Character ${characterId} not in party ${partyId}`);
+            if (result.count === 0) {
+                this.logger.warn(`Character ${characterId} not in party ${party.id}`);
                 return false;
             }
 
             // Emit event
-            this.context.events.emit('parties:memberLeft', {
-                partyId,
-                characterId
+            this.events.emit('parties:memberLeft', {
+                partyId: party.id,
+                characterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error leaving party: ${error}`);
+            this.logger.error(`Error leaving party: ${error}`);
             return false;
         }
     }
 
-    async kickFromParty(characterId: number, partyId: number, targetCharacterId: number): Promise<boolean> {
+    async kickFromParty(characterId: string, targetCharacterId: string): Promise<boolean> {
         try {
+            // Get kicker's party
+            const party = await this.getCharacterParty(characterId);
+            if (!party) {
+                this.logger.warn(`Character ${characterId} is not in a party`);
+                return false;
+            }
+
             // Check if kicker is party leader
-            const party = await this.getParty(partyId);
-            if (!party || party.leaderId !== characterId) {
-                this.context.logger.warn(`Character ${characterId} is not party leader`);
+            if (party.leaderId !== characterId) {
+                this.logger.warn(`Character ${characterId} is not party leader`);
                 return false;
             }
 
             // Cannot kick self
             if (characterId === targetCharacterId) {
-                this.context.logger.warn(`Cannot kick self from party`);
+                this.logger.warn(`Cannot kick self from party`);
                 return false;
             }
 
             // Remove member
-            await this.context.db.query(
-                `DELETE FROM ${this.membersTable}
-                 WHERE party_id = ? AND character_id = ?`,
-                [partyId, targetCharacterId]
-            );
+            const result = await this.prisma.partyMember.deleteMany({
+                where: {
+                    partyId: party.id,
+                    characterId: targetCharacterId
+                }
+            });
+
+            if (result.count === 0) {
+                this.logger.warn(`Target ${targetCharacterId} not in party ${party.id}`);
+                return false;
+            }
 
             // Emit event
-            this.context.events.emit('parties:memberKicked', {
-                partyId,
+            this.events.emit('parties:memberKicked', {
+                partyId: party.id,
                 characterId: targetCharacterId,
-                kickedBy: characterId
+                kickedBy: characterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error kicking from party: ${error}`);
+            this.logger.error(`Error kicking from party: ${error}`);
             return false;
         }
     }
 
-    async transferLeadership(characterId: number, partyId: number, targetCharacterId: number): Promise<boolean> {
+    async transferLeadership(characterId: string, targetCharacterId: string): Promise<boolean> {
         try {
+            // Get current leader's party
+            const party = await this.getCharacterParty(characterId);
+            if (!party) {
+                this.logger.warn(`Character ${characterId} is not in a party`);
+                return false;
+            }
+
             // Check if current leader
-            const party = await this.getParty(partyId);
-            if (!party || party.leaderId !== characterId) {
-                this.context.logger.warn(`Character ${characterId} is not party leader`);
+            if (party.leaderId !== characterId) {
+                this.logger.warn(`Character ${characterId} is not party leader`);
                 return false;
             }
 
             // Check if target is in party
-            const members = await this.getPartyMembers(partyId);
+            const members = await this.getPartyMembers(party.id);
             if (!members.find(m => m.characterId === targetCharacterId)) {
-                this.context.logger.warn(`Target ${targetCharacterId} not in party ${partyId}`);
+                this.logger.warn(`Target ${targetCharacterId} not in party ${party.id}`);
                 return false;
             }
 
             // Update party leader
-            await this.context.db.query(
-                `UPDATE ${this.partiesTable} SET leader_id = ? WHERE id = ?`,
-                [targetCharacterId, partyId]
-            );
+            await this.prisma.party.update({
+                where: { id: party.id },
+                data: { leaderId: targetCharacterId }
+            });
 
             // Emit event
-            this.context.events.emit('parties:leadershipTransferred', {
-                partyId,
+            this.events.emit('parties:leadershipTransferred', {
+                partyId: party.id,
                 oldLeaderId: characterId,
-                newLeaderId: targetCharacterId
+                newLeaderId: targetCharacterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error transferring leadership: ${error}`);
+            this.logger.error(`Error transferring leadership: ${error}`);
             return false;
         }
     }
 
-    async getParty(partyId: number): Promise<Party | null> {
-        try {
-            const [rows] = await this.context.db.query(
-                `SELECT p.*, c.name as leader_name
-                 FROM ${this.partiesTable} p
-                 JOIN characters c ON c.id = p.leader_id
-                 WHERE p.id = ?`,
-                [partyId]
-            ) as any;
+    async setLootMode(characterId: string, mode: string): Promise<boolean> {
+        const validModes = ['ffa', 'round-robin', 'need-greed'];
+        if (!validModes.includes(mode)) {
+            this.logger.warn(`Invalid loot mode: ${mode}`);
+            return false;
+        }
 
-            if (rows.length === 0) {
+        try {
+            const party = await this.getCharacterParty(characterId);
+            if (!party) {
+                this.logger.warn(`Character ${characterId} is not in a party`);
+                return false;
+            }
+
+            if (party.leaderId !== characterId) {
+                this.logger.warn(`Character ${characterId} is not party leader`);
+                return false;
+            }
+
+            await this.prisma.party.update({
+                where: { id: party.id },
+                data: { lootMode: mode }
+            });
+
+            this.events.emit('parties:lootModeChanged', {
+                partyId: party.id,
+                mode,
+                changedBy: characterId,
+                gameId: this.gameId
+            });
+
+            return true;
+        } catch (error) {
+            this.logger.error(`Error setting loot mode: ${error}`);
+            return false;
+        }
+    }
+
+    async getParty(partyId: string): Promise<Party | null> {
+        try {
+            const party = await this.prisma.party.findUnique({
+                where: { id: partyId }
+            });
+
+            if (!party || party.gameId !== this.gameId) {
                 return null;
             }
 
-            const party = rows[0];
+            const leaderName = await this.resolveCharacterName(party.leaderId);
+
             return {
-                partyId: party.id,
-                leaderId: party.leader_id,
-                leaderName: party.leader_name,
+                id: party.id,
+                leaderId: party.leaderId,
+                leaderName,
+                lootMode: party.lootMode,
                 maxMembers: this.maxPartySize,
-                createdAt: party.created_at
+                createdAt: party.createdAt
             };
         } catch (error) {
-            this.context.logger.error(`Error getting party: ${error}`);
+            this.logger.error(`Error getting party: ${error}`);
             return null;
         }
     }
 
-    async getPartyMembers(partyId: number): Promise<PartyMember[]> {
+    async getPartyMembers(partyId: string): Promise<PartyMember[]> {
         try {
             const party = await this.getParty(partyId);
             if (!party) {
                 return [];
             }
 
-            const [rows] = await this.context.db.query(
-                `SELECT m.character_id, m.joined_at, c.name as character_name
-                 FROM ${this.membersTable} m
-                 JOIN characters c ON c.id = m.character_id
-                 WHERE m.party_id = ?
-                 ORDER BY m.joined_at ASC`,
-                [partyId]
-            ) as any;
+            const members = await this.prisma.partyMember.findMany({
+                where: { partyId },
+                orderBy: { joinedAt: 'asc' }
+            });
 
-            const members: PartyMember[] = [];
+            const result: PartyMember[] = [];
 
-            for (const row of rows) {
+            for (const member of members) {
                 // Check online status via event hook
-                const results = await this.context.events.emitAsync('parties:checkOnlineStatus', row.character_id);
-                const isOnline = results && results.some((result: any) => result === true);
+                const onlineResults = await this.events.emitAsync('parties:checkOnlineStatus', member.characterId);
+                const isOnline = onlineResults && onlineResults.some((r: any) => r === true);
 
-                members.push({
-                    characterId: row.character_id,
-                    characterName: row.character_name,
-                    isLeader: row.character_id === party.leaderId,
-                    joinedAt: row.joined_at,
+                const characterName = await this.resolveCharacterName(member.characterId);
+
+                result.push({
+                    id: member.id,
+                    characterId: member.characterId,
+                    characterName,
+                    isLeader: member.characterId === party.leaderId,
+                    joinedAt: member.joinedAt,
                     isOnline
                 });
             }
 
-            return members;
+            return result;
         } catch (error) {
-            this.context.logger.error(`Error getting party members: ${error}`);
+            this.logger.error(`Error getting party members: ${error}`);
             return [];
         }
     }
 
-    async getCharacterParty(characterId: number): Promise<Party | null> {
+    async getCharacterParty(characterId: string): Promise<Party | null> {
         try {
-            const [rows] = await this.context.db.query(
-                `SELECT party_id FROM ${this.membersTable} WHERE character_id = ?`,
-                [characterId]
-            ) as any;
+            const membership = await this.prisma.partyMember.findFirst({
+                where: { characterId },
+                include: { party: true }
+            });
 
-            if (rows.length === 0) {
+            if (!membership || membership.party.gameId !== this.gameId) {
                 return null;
             }
 
-            return await this.getParty(rows[0].party_id);
+            const leaderName = await this.resolveCharacterName(membership.party.leaderId);
+
+            return {
+                id: membership.party.id,
+                leaderId: membership.party.leaderId,
+                leaderName,
+                lootMode: membership.party.lootMode,
+                maxMembers: this.maxPartySize,
+                createdAt: membership.party.createdAt
+            };
         } catch (error) {
-            this.context.logger.error(`Error getting character party: ${error}`);
+            this.logger.error(`Error getting character party: ${error}`);
             return null;
         }
     }
 
-    async getPartyInvites(characterId: number): Promise<PartyInvite[]> {
+    async getPartyInvites(characterId: string): Promise<PartyInvite[]> {
         try {
-            const [rows] = await this.context.db.query(
-                `SELECT i.id, i.party_id, i.character_id, i.invited_by, i.status, i.created_at,
-                        c.name as invited_by_name
-                 FROM ${this.invitesTable} i
-                 JOIN characters c ON c.id = i.invited_by
-                 WHERE i.character_id = ? AND i.status = 'pending'
-                 ORDER BY i.created_at DESC`,
-                [characterId]
-            ) as any;
+            // Clean up expired invites first
+            await this.prisma.partyInvite.updateMany({
+                where: {
+                    characterId,
+                    status: 'pending',
+                    expiresAt: { lt: new Date() }
+                },
+                data: { status: 'expired' }
+            });
 
-            return rows.map((row: any) => ({
-                inviteId: row.id,
-                partyId: row.party_id,
-                characterId: row.character_id,
-                invitedBy: row.invited_by,
-                invitedByName: row.invited_by_name,
-                status: row.status,
-                createdAt: row.created_at
-            }));
+            const invites = await this.prisma.partyInvite.findMany({
+                where: {
+                    characterId,
+                    status: 'pending',
+                    party: { gameId: this.gameId }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const result: PartyInvite[] = [];
+
+            for (const invite of invites) {
+                const invitedByName = await this.resolveCharacterName(invite.invitedBy);
+
+                result.push({
+                    id: invite.id,
+                    partyId: invite.partyId,
+                    characterId: invite.characterId,
+                    invitedBy: invite.invitedBy,
+                    invitedByName,
+                    status: invite.status,
+                    expiresAt: invite.expiresAt,
+                    createdAt: invite.createdAt
+                });
+            }
+
+            return result;
         } catch (error) {
-            this.context.logger.error(`Error getting party invites: ${error}`);
+            this.logger.error(`Error getting party invites: ${error}`);
             return [];
         }
     }
 
-    async distributeXP(partyId: number, totalXP: number): Promise<void> {
+    async distributeXP(partyId: string, totalXP: number): Promise<void> {
         try {
             const members = await this.getPartyMembers(partyId);
             if (members.length === 0) {
@@ -536,42 +714,72 @@ export class PartyManager {
 
             // Emit event for each member to receive XP
             for (const member of members) {
-                this.context.events.emit('parties:xpDistributed', {
+                this.events.emit('parties:xpDistributed', {
                     partyId,
                     characterId: member.characterId,
                     xp: xpPerMember,
-                    totalXP
+                    totalXP,
+                    gameId: this.gameId
                 });
             }
         } catch (error) {
-            this.context.logger.error(`Error distributing XP: ${error}`);
+            this.logger.error(`Error distributing XP: ${error}`);
         }
     }
 
-    async distributeLoot(partyId: number, items: LootItem[]): Promise<void> {
+    async distributeLoot(partyId: string, items: LootItem[]): Promise<void> {
         try {
+            const party = await this.getParty(partyId);
+            if (!party) {
+                return;
+            }
+
             const members = await this.getPartyMembers(partyId);
             if (members.length === 0) {
                 return;
             }
 
-            // Simple round-robin distribution
-            let memberIndex = 0;
-            for (const item of items) {
-                const recipient = members[memberIndex % members.length];
+            // Distribution based on loot mode
+            if (party.lootMode === 'ffa') {
+                // Free-for-all: emit loot available event, first to pick gets it
+                for (const item of items) {
+                    this.events.emit('parties:lootAvailable', {
+                        partyId,
+                        itemId: item.itemId,
+                        quantity: item.quantity,
+                        gameId: this.gameId
+                    });
+                }
+            } else if (party.lootMode === 'round-robin') {
+                // Round-robin distribution
+                let memberIndex = 0;
+                for (const item of items) {
+                    const recipient = members[memberIndex % members.length];
 
-                // Emit event for loot distribution
-                this.context.events.emit('parties:lootDistributed', {
-                    partyId,
-                    characterId: recipient.characterId,
-                    itemId: item.itemId,
-                    quantity: item.quantity
-                });
+                    this.events.emit('parties:lootDistributed', {
+                        partyId,
+                        characterId: recipient.characterId,
+                        itemId: item.itemId,
+                        quantity: item.quantity,
+                        gameId: this.gameId
+                    });
 
-                memberIndex++;
+                    memberIndex++;
+                }
+            } else if (party.lootMode === 'need-greed') {
+                // Need/greed: emit event for roll system
+                for (const item of items) {
+                    this.events.emit('parties:lootNeedGreed', {
+                        partyId,
+                        itemId: item.itemId,
+                        quantity: item.quantity,
+                        members: members.map(m => m.characterId),
+                        gameId: this.gameId
+                    });
+                }
             }
         } catch (error) {
-            this.context.logger.error(`Error distributing loot: ${error}`);
+            this.logger.error(`Error distributing loot: ${error}`);
         }
     }
 }
