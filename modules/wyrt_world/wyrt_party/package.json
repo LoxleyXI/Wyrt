@@ -1,7 +1,0 @@
-{
-  "name": "wyrt_party",
-  "version": "1.0.0",
-  "description": "Game-agnostic party/group system for multiplayer games",
-  "type": "module",
-  "main": "index.ts"
-}
