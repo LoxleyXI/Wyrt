@@ -94,12 +94,12 @@ export class HttpServer {
                     });
                 }
 
-                const [existingUsers] = await this.context.db.query(
-                    "SELECT id FROM accounts WHERE username = ?",
-                    [username]
-                );
+                // Check if username exists
+                const existingUser = await this.context.prisma.account.findUnique({
+                    where: { username }
+                });
 
-                if (existingUsers.length > 0) {
+                if (existingUser) {
                     return res.status(409).json({
                         success: false,
                         message: 'Username already taken'
@@ -109,12 +109,16 @@ export class HttpServer {
                 // Hash password
                 const hashedPassword = await this.context.authManager.hashPassword(password);
 
-                const [result] = await this.context.db.query(
-                    "INSERT INTO accounts (username, email, password_hash) VALUES (?, ?, ?)",
-                    [username, email || `${username}@example.com`, hashedPassword]
-                );
+                // Create account
+                const newAccount = await this.context.prisma.account.create({
+                    data: {
+                        username,
+                        email: email || `${username}@example.com`,
+                        password_hash: hashedPassword
+                    }
+                });
 
-                const userId = result.insertId;
+                const userId = newAccount.id;
 
                 // Generate token
                 const payload: AuthPayload = {
@@ -156,19 +160,17 @@ export class HttpServer {
                     });
                 }
 
-                const [accounts] = await this.context.db.query(
-                    "SELECT id, username, password_hash, status FROM accounts WHERE username = ?",
-                    [username]
-                );
+                // Find account by username
+                const account = await this.context.prisma.account.findUnique({
+                    where: { username }
+                });
 
-                if (accounts.length === 0) {
+                if (!account) {
                     return res.status(401).json({
                         success: false,
                         message: 'Invalid username or password'
                     });
                 }
-
-                const account = accounts[0];
 
                 // Verify password
                 const passwordValid = await this.context.authManager.comparePassword(password, account.password_hash);
@@ -181,8 +183,10 @@ export class HttpServer {
                 }
 
                 // Update last login (fire and forget)
-                this.context.db.query("UPDATE accounts SET last_login = NOW() WHERE id = ?", [account.id])
-                    .catch(err => console.error("Failed to update last_login:", err));
+                this.context.prisma.account.update({
+                    where: { id: account.id },
+                    data: { last_login: new Date() }
+                }).catch(err => console.error("Failed to update last_login:", err));
 
                 // Generate token
                 const payload: AuthPayload = {
