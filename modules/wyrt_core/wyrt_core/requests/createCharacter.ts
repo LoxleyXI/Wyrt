@@ -37,7 +37,7 @@ const handler: Request = {
 
         try {
             // Check if name is already taken in this game
-            const existingChar = await context.prisma.characters.findFirst({
+            const existingChar = await context.prisma.legacyCharacter.findFirst({
                 where: {
                     name: name,
                     game_id: gameId
@@ -52,7 +52,7 @@ const handler: Request = {
             }
 
             // Create character
-            const newCharacter = await context.prisma.characters.create({
+            const newCharacter = await context.prisma.legacyCharacter.create({
                 data: {
                     account_id: u.account.id,
                     game_id: gameId,
@@ -79,7 +79,7 @@ const handler: Request = {
                     console.error(`Failed to initialize ${gameId} character:`, error);
                     u.error("Failed to initialize game-specific data");
                     // Rollback character creation
-                    await context.prisma.characters.delete({
+                    await context.prisma.legacyCharacter.delete({
                         where: { id: characterId }
                     });
                     return;
@@ -89,7 +89,7 @@ const handler: Request = {
             }
 
             // Log character creation (fire and forget)
-            context.prisma.audit_log.create({
+            context.prisma.auditLog.create({
                 data: {
                     account_id: u.account.id,
                     action: 'character_created',

@@ -20,7 +20,7 @@ const handler: Request = {
 
         try {
             // Verify character ownership
-            const character = await context.prisma.characters.findFirst({
+            const character = await context.prisma.legacyCharacter.findFirst({
                 where: {
                     id: characterId,
                     account_id: u.account.id,

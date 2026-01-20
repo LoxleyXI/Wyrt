@@ -24,7 +24,7 @@ const handler: Request = {
                 where.game_id = gameId;
             }
 
-            const results = await context.prisma.characters.findMany({
+            const results = await context.prisma.legacyCharacter.findMany({
                 where: where,
                 orderBy: {
                     last_played: 'desc'

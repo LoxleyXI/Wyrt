@@ -1185,3 +1185,55 @@ model DungeonLockout {
   @@unique([gameId, characterId, dungeonSlug])
   @@index([resetsAt])
 }
+
+// =============================================================================
+// LEGACY TABLES (for wyrt_core backward compatibility)
+// =============================================================================
+
+/// Legacy character table for wyrt_core compatibility
+/// Uses integer IDs and account_id foreign key
+model LegacyCharacter {
+  id          Int       @id @default(autoincrement())
+  account_id  Int
+  game_id     String    @default("fyrnvale")
+  name        String
+  class       String    @default("Warrior")
+  level       Int       @default(1)
+  zone        String?
+  deleted     Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  last_played DateTime?
+
+  @@index([account_id, game_id])
+  @@index([name])
+  @@map("characters")
+}
+
+/// Legacy session table for wyrt_core compatibility
+model LegacySession {
+  id          String   @id @default(uuid())
+  account_id  Int
+  token       String   @unique
+  created_at  DateTime @default(now())
+  expires_at  DateTime
+  ip_address  String?
+  user_agent  String?
+
+  @@index([account_id])
+  @@index([token])
+  @@map("sessions")
+}
+
+/// Audit log for tracking important actions
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  account_id  Int?
+  action      String
+  details     Json     @default("{}")
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  @@index([account_id])
+  @@index([action])
+  @@map("audit_log")
+}

@@ -14,7 +14,7 @@ const handler: Request = {
         }
 
         try {
-            const account = await context.prisma.accounts.findUnique({
+            const account = await context.prisma.account.findUnique({
                 where: { username: username },
                 select: {
                     id: true,
@@ -49,7 +49,7 @@ const handler: Request = {
             });
 
             // Update last login (fire and forget)
-            context.prisma.accounts.update({
+            context.prisma.account.update({
                 where: { id: account.id },
                 data: { last_login: new Date() }
             }).catch(err => console.error("Failed to update last_login:", err));
@@ -58,7 +58,7 @@ const handler: Request = {
             const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-            await context.prisma.sessions.create({
+            await context.prisma.legacySession.create({
                 data: {
                     id: sessionId,
                     account_id: account.id,

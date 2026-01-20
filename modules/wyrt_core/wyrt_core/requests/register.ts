@@ -25,7 +25,7 @@ const handler: Request = {
 
         try {
             // Check if username exists
-            const existingUser = await context.prisma.accounts.findUnique({
+            const existingUser = await context.prisma.account.findUnique({
                 where: { username: username },
                 select: { id: true }
             });
@@ -39,7 +39,7 @@ const handler: Request = {
             const hashedPassword = await context.authManager.hashPassword(password);
 
             // Create account
-            const newAccount = await context.prisma.accounts.create({
+            const newAccount = await context.prisma.account.create({
                 data: {
                     username: username,
                     email: email || `${username}@example.com`,
