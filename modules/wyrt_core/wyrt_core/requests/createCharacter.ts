@@ -6,14 +6,7 @@ const handler: Request = {
     cost: 5,
     auth: true,
     exec: async function(u: User, data: Data, payload: any, context?: any) {
-        const { name, gameId, characterClass } = payload;
-
-        console.log("CreateCharacter request:", {
-            name,
-            gameId,
-            characterClass,
-            account: u.account
-        });
+        const { name: rawName, gameId, characterClass } = payload;
 
         if (!u.account || !u.account.authenticated) {
             console.error("Create character failed: User not authenticated", u.account);
@@ -21,16 +14,26 @@ const handler: Request = {
             return;
         }
 
-        if (!name || !gameId) {
+        if (!rawName || !gameId) {
             u.error("Character name and game ID required");
             return;
         }
 
         // Validate character name
-        if (!/^[a-zA-Z]{3,20}$/.test(name)) {
+        if (!/^[a-zA-Z]{3,20}$/.test(rawName)) {
             u.error("Character name must be 3-20 letters only");
             return;
         }
+
+        // Capitalize name: first letter uppercase, rest lowercase
+        const name = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
+
+        console.log("CreateCharacter request:", {
+            name,
+            gameId,
+            characterClass,
+            account: u.account
+        });
 
         // Set default class if not provided
         const charClass = characterClass || 'Warrior';
