@@ -45,14 +45,18 @@ const handler: Request = {
             if (dataModule) {
                 const db = dataModule.getDatabase();
 
-                // Find the wyrt_data Character by matching the legacy character
-                // Characters are linked by having the same account and matching creation
-                const wyrtCharacter = await db.character.findFirst({
+                // Look up the game UUID from the slug
+                const game = await db.game.findUnique({
+                    where: { slug: character.game_id }
+                });
+
+                // Find the wyrt_data Character by matching name and game UUID
+                const wyrtCharacter = game ? await db.character.findFirst({
                     where: {
                         name: character.name,
-                        gameId: character.game_id
+                        gameId: game.id
                     }
-                });
+                }) : null;
 
                 if (wyrtCharacter) {
                     // Delete related records first (foreign key constraints)

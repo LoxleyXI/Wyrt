@@ -130,8 +130,13 @@ export class InventorySystem implements InventoryAPI {
       }
 
       return true;
-    } catch (error) {
-      this.context.logger.error(`Error adding item to inventory: ${error}`);
+    } catch (error: any) {
+      // In dev mode with dev characters, this is expected (no DB character exists)
+      if (error?.code === 'P2003' || error?.message?.includes('Foreign key')) {
+        this.context.logger.debug(`Inventory not persisted for dev character ${characterId}`);
+      } else {
+        this.context.logger.error(`Error adding item to inventory: ${error}`);
+      }
       return false;
     }
   }

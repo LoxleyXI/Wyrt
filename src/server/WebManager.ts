@@ -151,9 +151,20 @@ export class WebManager {
             continue;
           }
 
-          // Find an available port
-          const port = await this.findAvailablePort(nextPort);
-          nextPort = port + 1;
+          // Check for preferred port in wyrt config, otherwise find available
+          let port: number;
+          if (packageJson.wyrt?.port) {
+            // Use preferred port if available, otherwise find next available
+            if (await this.isPortAvailable(packageJson.wyrt.port)) {
+              port = packageJson.wyrt.port;
+            } else {
+              console.log(`[WebManager] Preferred port ${packageJson.wyrt.port} for ${module} is in use, finding alternative`);
+              port = await this.findAvailablePort(nextPort);
+            }
+          } else {
+            port = await this.findAvailablePort(nextPort);
+          }
+          nextPort = Math.max(nextPort, port) + 1;
 
           webApps.push({
             name: module,

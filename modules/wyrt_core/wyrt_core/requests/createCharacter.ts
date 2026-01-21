@@ -39,11 +39,12 @@ const handler: Request = {
         const charClass = characterClass || 'Warrior';
 
         try {
-            // Check if name is already taken in this game
+            // Check if name is already taken in this game (exclude deleted characters)
             const existingChar = await context.prisma.legacyCharacter.findFirst({
                 where: {
                     name: name,
-                    game_id: gameId
+                    game_id: gameId,
+                    deleted: false
                 },
                 select: { id: true }
             });
