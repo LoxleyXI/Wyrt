@@ -718,6 +718,9 @@ model Account {
   // Display name (customizable, defaults to OAuth display name)
   display_name   String?   // User's preferred display name
 
+  // Custom avatar selection (index 0-35 for avatar spritesheet)
+  avatar_id      Int?      // Selected avatar from spritesheet
+
   @@index([username])
   @@index([email])
   @@index([oauth_provider, oauth_id])
