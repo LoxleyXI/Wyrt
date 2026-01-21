@@ -141,19 +141,22 @@ export function createOAuthRouter(oauthManager: OAuthManager): Router {
                 path: '/',
             });
 
-            // Get original redirect URL from state
+            // Get original redirect URL from state (this is the frontend callback URL)
             const redirectUrl = stateData.redirectUrl || '/';
 
-            // Redirect to callback page with success flag (no token in URL for security)
-            // The frontend reads the session from the cookie via /api/session
-            const frontendCallback = '/oauth/callback';
-            const separator = frontendCallback.includes('?') ? '&' : '?';
-            const finalUrl = `${frontendCallback}${separator}success=true${isNewAccount ? '&new=1' : ''}&redirect=${encodeURIComponent(redirectUrl)}`;
+            // Build the final redirect URL with token
+            // The frontend passes a full URL like: http://localhost:8002/auth/callback?redirect=/play
+            // We add the token to it
+            const redirectUrlObj = new URL(redirectUrl, `${req.protocol}://${req.headers.host}`);
+            redirectUrlObj.searchParams.set('token', token);
+            if (isNewAccount) {
+                redirectUrlObj.searchParams.set('new', '1');
+            }
 
-            res.redirect(finalUrl);
+            res.redirect(redirectUrlObj.toString());
         } catch (error: any) {
             console.error('[OAuth] Authentication failed:', error);
-            return res.redirect('/oauth/callback?error=oauth_failed&message=' + encodeURIComponent(error.message));
+            return res.redirect('/auth/callback?error=oauth_failed&message=' + encodeURIComponent(error.message));
         }
     });
 
@@ -165,6 +168,51 @@ export function createOAuthRouter(oauthManager: OAuthManager): Router {
  */
 export function createSessionRouter(oauthManager: OAuthManager): Router {
     const router = Router();
+
+    /**
+     * Verify token from Authorization header
+     * GET /api/auth/verify
+     * Returns: { success: boolean, userId?, username?, message? }
+     *
+     * This endpoint is used by GameClient to verify tokens
+     * Uses the OAuth module's JWT secret (same as token creation)
+     */
+    router.get('/auth/verify', (req: Request, res: Response) => {
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                success: false,
+                message: 'No token provided'
+            });
+        }
+
+        const token = authHeader.substring(7);
+
+        try {
+            const session = oauthManager.verifySessionToken(token);
+            if (!session) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid or expired token'
+                });
+            }
+
+            res.json({
+                success: true,
+                userId: session.accountId,
+                username: session.username,
+                displayName: session.displayName,
+                gameId: session.gameId || null
+            });
+        } catch (error) {
+            console.error('[Auth] Token verification failed:', error);
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid or expired token'
+            });
+        }
+    });
 
     /**
      * Validate current session

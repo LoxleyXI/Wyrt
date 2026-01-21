@@ -217,23 +217,49 @@ export class HttpServer {
         });
 
         // Verify token endpoint
+        // Delegates to OAuth module if present (for OAuth tokens),
+        // otherwise uses engine's authManager (for username/password tokens)
         this.app.get('/api/auth/verify', (req: Request, res: Response) => {
             const authHeader = req.headers.authorization;
-            
+
             if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                return res.status(401).json({ 
-                    success: false, 
-                    message: 'No token provided' 
+                return res.status(401).json({
+                    success: false,
+                    message: 'No token provided'
                 });
             }
 
             const token = authHeader.substring(7);
+
+            // Try OAuth module first (if configured)
+            const oauthModule = this.context.getModule('wyrt_oauth') as any;
+            if (oauthModule && typeof oauthModule.getOAuthManager === 'function') {
+                const oauthManager = oauthModule.getOAuthManager();
+                if (oauthManager && typeof oauthManager.verifySessionToken === 'function') {
+                    try {
+                        const session = oauthManager.verifySessionToken(token);
+                        if (session) {
+                            return res.json({
+                                success: true,
+                                userId: session.accountId,
+                                username: session.username,
+                                displayName: session.displayName,
+                                gameId: session.gameId || null
+                            });
+                        }
+                    } catch (e) {
+                        // OAuth verification failed, try engine auth below
+                    }
+                }
+            }
+
+            // Fallback to engine's authManager (for username/password tokens)
             const payload = this.context.authManager.verifyToken(token);
 
             if (!payload) {
-                return res.status(401).json({ 
-                    success: false, 
-                    message: 'Invalid or expired token' 
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid or expired token'
                 });
             }
 
