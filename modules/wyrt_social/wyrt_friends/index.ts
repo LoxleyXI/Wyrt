@@ -15,39 +15,59 @@
  * @usage
  * ```typescript
  * const friendsModule = context.getModule('wyrt_friends');
- * const friendManager = friendsModule.createFriendManager('my_game');
+ * const friendManager = friendsModule.createFriendManager('my_game', {
+ *   characterNameResolver: async (id) => getCharacterName(id)
+ * });
  *
  * // Send a friend request
- * await friendManager.sendRequest(fromPlayerId, toPlayerId);
+ * await friendManager.sendFriendRequest(fromPlayerId, toPlayerId);
  *
  * // Accept a request
- * await friendManager.acceptRequest(requestId);
+ * await friendManager.acceptFriendRequest(characterId, requestId);
  *
  * // Get friend list with online status
  * const friends = await friendManager.getFriends(playerId);
- * friends.forEach(f => console.log(f.name, f.online));
+ * friends.online.forEach(f => console.log(f.name, 'online'));
  *
  * // Block a player
- * await friendManager.blockPlayer(playerId, blockedId);
+ * await friendManager.blockUser(playerId, blockedId);
  * ```
  *
  * @exports FriendManager - Manages friend relationships and requests
  */
 import { IModule, ModuleContext } from "../../../src/module/IModule";
-import { FriendManager } from "./systems/FriendManager";
+import { FriendManager, CharacterNameResolver } from "./systems/FriendManager";
+import { PrismaClient } from "@prisma/client";
 import colors from "colors/safe";
+
+export interface FriendManagerOptions {
+    characterNameResolver?: CharacterNameResolver;
+}
 
 export default class WyrtFriendsModule implements IModule {
     name = "wyrt_friends";
-    version = "1.0.0";
+    version = "2.0.0";
     description = "Generic friend system for multiplayer games";
-    dependencies = [];
+    dependencies = ["wyrt_data"];
 
     private context?: ModuleContext;
+    private prisma?: PrismaClient;
     private friendManagers: Map<string, FriendManager> = new Map();
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
+
+        // Get Prisma client from wyrt_data module
+        const dataModule = context.getModule('wyrt_data');
+        if (dataModule && typeof dataModule.getDatabase === 'function') {
+            this.prisma = dataModule.getDatabase();
+        }
+
+        if (!this.prisma) {
+            context.logger.warn(`[${this.name}] Prisma client not available - friend system will not function`);
+            return;
+        }
+
         context.logger.info(`[${this.name}] Initializing friend system...`);
         context.logger.info(`[${this.name}] ✓ Friend system ready`);
     }
@@ -66,17 +86,28 @@ export default class WyrtFriendsModule implements IModule {
      * Create a new friend manager for a specific game
      *
      * @param gameId - Unique identifier for the game
+     * @param options - Optional configuration for the friend manager
      * @returns The created friend manager
      */
-    createFriendManager(gameId: string): FriendManager {
+    createFriendManager(gameId: string, options?: FriendManagerOptions): FriendManager {
         if (this.friendManagers.has(gameId)) {
-            throw new Error(`FriendManager for game '${gameId}' already exists`);
+            return this.friendManagers.get(gameId)!;
         }
         if (!this.context) {
             throw new Error('Module not initialized');
         }
+        if (!this.prisma) {
+            throw new Error('Prisma client not available');
+        }
 
-        const manager = new FriendManager(this.context, gameId);
+        const manager = new FriendManager(
+            this.prisma,
+            this.context.events,
+            this.context.logger,
+            gameId,
+            options
+        );
+
         this.friendManagers.set(gameId, manager);
         console.log(`[${this.name}] Created friend manager for game: ${gameId}`);
         return manager;
@@ -96,3 +127,7 @@ export default class WyrtFriendsModule implements IModule {
         return manager;
     }
 }
+
+// Re-export class and types
+export { FriendManager } from "./systems/FriendManager";
+export type { Friend, FriendRequest, FriendAPI, CharacterNameResolver } from "./systems/FriendManager";

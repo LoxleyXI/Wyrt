@@ -1,57 +1,100 @@
-import { ModuleContext } from "../../../src/module/ModuleContext";
+import { PrismaClient } from "@prisma/client";
+import { EventEmitter } from "../../../../src/events/EventEmitter";
 
 export interface Friend {
-    characterId: number;
+    characterId: string;
     characterName: string;
     isOnline: boolean;
     friendSince: Date;
 }
 
 export interface FriendRequest {
-    requestId: number;
-    fromCharacterId: number;
+    requestId: string;
+    fromCharacterId: string;
     fromCharacterName: string;
-    toCharacterId: number;
+    toCharacterId: string;
     status: 'pending' | 'accepted' | 'rejected';
     createdAt: Date;
 }
 
 export interface FriendAPI {
-    sendFriendRequest(characterId: number, targetCharacterId: number): Promise<boolean>;
-    acceptFriendRequest(characterId: number, requestId: number): Promise<boolean>;
-    rejectFriendRequest(characterId: number, requestId: number): Promise<boolean>;
-    removeFriend(characterId: number, friendCharacterId: number): Promise<boolean>;
-    getFriends(characterId: number): Promise<{ online: Friend[], offline: Friend[] }>;
-    getFriendRequests(characterId: number): Promise<FriendRequest[]>;
-    blockUser(characterId: number, targetCharacterId: number): Promise<boolean>;
-    unblockUser(characterId: number, blockedCharacterId: number): Promise<boolean>;
-    isBlocked(characterId: number, targetCharacterId: number): Promise<boolean>;
-    isFriend(characterId: number, targetCharacterId: number): Promise<boolean>;
-    isOnline(characterId: number): Promise<boolean>;
+    sendFriendRequest(characterId: string, targetCharacterId: string): Promise<boolean>;
+    acceptFriendRequest(characterId: string, requestId: string): Promise<boolean>;
+    rejectFriendRequest(characterId: string, requestId: string): Promise<boolean>;
+    removeFriend(characterId: string, friendCharacterId: string): Promise<boolean>;
+    getFriends(characterId: string): Promise<{ online: Friend[], offline: Friend[] }>;
+    getFriendRequests(characterId: string): Promise<FriendRequest[]>;
+    blockUser(characterId: string, targetCharacterId: string): Promise<boolean>;
+    unblockUser(characterId: string, blockedCharacterId: string): Promise<boolean>;
+    isBlocked(characterId: string, targetCharacterId: string): Promise<boolean>;
+    isFriend(characterId: string, targetCharacterId: string): Promise<boolean>;
+    isOnline(characterId: string): Promise<boolean>;
 }
 
-export class FriendManager {
-    private context: ModuleContext;
-    private gameId: string;
-    private friendsTable: string;
-    private requestsTable: string;
-    private blockedTable: string;
-    private onlineChecker?: (characterId: number) => boolean;
+// Logger interface to avoid circular dependency
+interface Logger {
+    info(message: string): void;
+    warn(message: string): void;
+    error(message: string): void;
+    debug(message: string): void;
+}
 
-    constructor(context: ModuleContext, gameId: string) {
-        this.context = context;
+// Character name resolver function type
+export type CharacterNameResolver = (characterId: string) => Promise<string | undefined>;
+
+export class FriendManager {
+    private prisma: PrismaClient;
+    private events: EventEmitter;
+    private logger: Logger;
+    private gameId: string;
+    private onlineChecker?: (characterId: string) => boolean;
+    private characterNameResolver?: CharacterNameResolver;
+
+    constructor(
+        prisma: PrismaClient,
+        events: EventEmitter,
+        logger: Logger,
+        gameId: string,
+        options?: {
+            characterNameResolver?: CharacterNameResolver;
+        }
+    ) {
+        this.prisma = prisma;
+        this.events = events;
+        this.logger = logger;
         this.gameId = gameId;
-        this.friendsTable = `${gameId}_friends`;
-        this.requestsTable = `${gameId}_friend_requests`;
-        this.blockedTable = `${gameId}_blocked_users`;
+
+        if (options?.characterNameResolver) {
+            this.characterNameResolver = options.characterNameResolver;
+        }
     }
 
     /**
      * Set a callback function to check if a character is online
      * The game module should provide this based on its player tracking
      */
-    setOnlineChecker(checker: (characterId: number) => boolean): void {
+    setOnlineChecker(checker: (characterId: string) => boolean): void {
         this.onlineChecker = checker;
+    }
+
+    /**
+     * Set a function to resolve character names from IDs
+     */
+    setCharacterNameResolver(resolver: CharacterNameResolver): void {
+        this.characterNameResolver = resolver;
+    }
+
+    private async resolveCharacterName(characterId: string): Promise<string> {
+        if (this.characterNameResolver) {
+            const name = await this.characterNameResolver(characterId);
+            if (name) return name;
+        }
+        return `Character_${characterId}`;
+    }
+
+    private getOrderedIds(id1: string, id2: string): [string, string] {
+        // Always store lower ID first for consistent friendship lookups
+        return id1 < id2 ? [id1, id2] : [id2, id1];
     }
 
     getAPI(): FriendAPI {
@@ -70,184 +113,203 @@ export class FriendManager {
         };
     }
 
-    async sendFriendRequest(characterId: number, targetCharacterId: number): Promise<boolean> {
+    async sendFriendRequest(characterId: string, targetCharacterId: string): Promise<boolean> {
         try {
             // Check if already friends
             if (await this.isFriend(characterId, targetCharacterId)) {
-                this.context.logger.warn(`Characters ${characterId} and ${targetCharacterId} are already friends`);
+                this.logger.warn(`Characters ${characterId} and ${targetCharacterId} are already friends`);
                 return false;
             }
 
             // Check if blocked
             if (await this.isBlocked(targetCharacterId, characterId)) {
-                this.context.logger.warn(`Character ${characterId} is blocked by ${targetCharacterId}`);
+                this.logger.warn(`Character ${characterId} is blocked by ${targetCharacterId}`);
                 return false;
             }
 
-            // Check for existing pending request
-            const [existingRows] = await this.context.db.query(
-                `SELECT id FROM ${this.requestsTable}
-                 WHERE ((from_character_id = ? AND to_character_id = ?)
-                    OR (from_character_id = ? AND to_character_id = ?))
-                 AND status = 'pending'`,
-                [characterId, targetCharacterId, targetCharacterId, characterId]
-            ) as any;
+            // Check for existing pending request (in either direction)
+            const existingRequest = await this.prisma.friendRequest.findFirst({
+                where: {
+                    gameId: this.gameId,
+                    status: 'pending',
+                    OR: [
+                        { fromCharacterId: characterId, toCharacterId: targetCharacterId },
+                        { fromCharacterId: targetCharacterId, toCharacterId: characterId }
+                    ]
+                }
+            });
 
-            if (existingRows.length > 0) {
-                this.context.logger.warn(`Friend request already pending between ${characterId} and ${targetCharacterId}`);
+            if (existingRequest) {
+                this.logger.warn(`Friend request already pending between ${characterId} and ${targetCharacterId}`);
                 return false;
             }
 
             // Create friend request
-            await this.context.db.query(
-                `INSERT INTO ${this.requestsTable} (from_character_id, to_character_id, status, created_at)
-                 VALUES (?, ?, 'pending', NOW())`,
-                [characterId, targetCharacterId]
-            );
+            await this.prisma.friendRequest.create({
+                data: {
+                    gameId: this.gameId,
+                    fromCharacterId: characterId,
+                    toCharacterId: targetCharacterId,
+                    status: 'pending'
+                }
+            });
 
             // Emit event
-            this.context.events.emit('friends:requestSent', {
+            this.events.emit('friends:requestSent', {
                 fromCharacterId: characterId,
-                toCharacterId: targetCharacterId
+                toCharacterId: targetCharacterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error sending friend request: ${error}`);
+            this.logger.error(`Error sending friend request: ${error}`);
             return false;
         }
     }
 
-    async acceptFriendRequest(characterId: number, requestId: number): Promise<boolean> {
+    async acceptFriendRequest(characterId: string, requestId: string): Promise<boolean> {
         try {
             // Get request
-            const [rows] = await this.context.db.query(
-                `SELECT * FROM ${this.requestsTable} WHERE id = ? AND to_character_id = ? AND status = 'pending'`,
-                [requestId, characterId]
-            ) as any;
+            const request = await this.prisma.friendRequest.findFirst({
+                where: {
+                    id: requestId,
+                    toCharacterId: characterId,
+                    status: 'pending',
+                    gameId: this.gameId
+                }
+            });
 
-            if (rows.length === 0) {
-                this.context.logger.warn(`Friend request ${requestId} not found for character ${characterId}`);
+            if (!request) {
+                this.logger.warn(`Friend request ${requestId} not found for character ${characterId}`);
                 return false;
             }
 
-            const request = rows[0];
-            const fromCharacterId = request.from_character_id;
+            const fromCharacterId = request.fromCharacterId;
+            const [id1, id2] = this.getOrderedIds(characterId, fromCharacterId);
 
-            // Update request status
-            await this.context.db.query(
-                `UPDATE ${this.requestsTable} SET status = 'accepted' WHERE id = ?`,
-                [requestId]
-            );
-
-            // Add friendship (bidirectional)
-            await this.context.db.query(
-                `INSERT INTO ${this.friendsTable} (character_id_1, character_id_2, created_at)
-                 VALUES (?, ?, NOW())`,
-                [Math.min(characterId, fromCharacterId), Math.max(characterId, fromCharacterId)]
-            );
+            // Update request status and add friendship in transaction
+            await this.prisma.$transaction([
+                this.prisma.friendRequest.update({
+                    where: { id: requestId },
+                    data: { status: 'accepted' }
+                }),
+                this.prisma.friendship.create({
+                    data: {
+                        gameId: this.gameId,
+                        characterId1: id1,
+                        characterId2: id2
+                    }
+                })
+            ]);
 
             // Emit event
-            this.context.events.emit('friends:requestAccepted', {
+            this.events.emit('friends:requestAccepted', {
                 characterId,
                 friendCharacterId: fromCharacterId,
-                requestId
+                requestId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error accepting friend request: ${error}`);
+            this.logger.error(`Error accepting friend request: ${error}`);
             return false;
         }
     }
 
-    async rejectFriendRequest(characterId: number, requestId: number): Promise<boolean> {
+    async rejectFriendRequest(characterId: string, requestId: string): Promise<boolean> {
         try {
-            const result = await this.context.db.query(
-                `UPDATE ${this.requestsTable} SET status = 'rejected'
-                 WHERE id = ? AND to_character_id = ? AND status = 'pending'`,
-                [requestId, characterId]
-            ) as any;
+            const result = await this.prisma.friendRequest.updateMany({
+                where: {
+                    id: requestId,
+                    toCharacterId: characterId,
+                    status: 'pending',
+                    gameId: this.gameId
+                },
+                data: { status: 'rejected' }
+            });
 
-            if (result[0].affectedRows === 0) {
-                this.context.logger.warn(`Friend request ${requestId} not found for character ${characterId}`);
+            if (result.count === 0) {
+                this.logger.warn(`Friend request ${requestId} not found for character ${characterId}`);
                 return false;
             }
 
             // Emit event
-            this.context.events.emit('friends:requestRejected', {
+            this.events.emit('friends:requestRejected', {
                 characterId,
-                requestId
+                requestId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error rejecting friend request: ${error}`);
+            this.logger.error(`Error rejecting friend request: ${error}`);
             return false;
         }
     }
 
-    async removeFriend(characterId: number, friendCharacterId: number): Promise<boolean> {
+    async removeFriend(characterId: string, friendCharacterId: string): Promise<boolean> {
         try {
-            const result = await this.context.db.query(
-                `DELETE FROM ${this.friendsTable}
-                 WHERE (character_id_1 = ? AND character_id_2 = ?)
-                    OR (character_id_1 = ? AND character_id_2 = ?)`,
-                [
-                    Math.min(characterId, friendCharacterId),
-                    Math.max(characterId, friendCharacterId),
-                    Math.min(friendCharacterId, characterId),
-                    Math.max(friendCharacterId, characterId)
-                ]
-            ) as any;
+            const [id1, id2] = this.getOrderedIds(characterId, friendCharacterId);
 
-            if (result[0].affectedRows === 0) {
-                this.context.logger.warn(`Friendship not found between ${characterId} and ${friendCharacterId}`);
+            const result = await this.prisma.friendship.deleteMany({
+                where: {
+                    gameId: this.gameId,
+                    characterId1: id1,
+                    characterId2: id2
+                }
+            });
+
+            if (result.count === 0) {
+                this.logger.warn(`Friendship not found between ${characterId} and ${friendCharacterId}`);
                 return false;
             }
 
             // Emit event
-            this.context.events.emit('friends:removed', {
+            this.events.emit('friends:removed', {
                 characterId,
-                friendCharacterId
+                friendCharacterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error removing friend: ${error}`);
+            this.logger.error(`Error removing friend: ${error}`);
             return false;
         }
     }
 
-    async getFriends(characterId: number): Promise<{ online: Friend[], offline: Friend[] }> {
+    async getFriends(characterId: string): Promise<{ online: Friend[], offline: Friend[] }> {
         try {
-            const [rows] = await this.context.db.query(
-                `SELECT
-                    CASE
-                        WHEN f.character_id_1 = ? THEN f.character_id_2
-                        ELSE f.character_id_1
-                    END as friend_character_id,
-                    c.name as character_name,
-                    f.created_at as friend_since
-                 FROM ${this.friendsTable} f
-                 JOIN characters c ON c.id = CASE
-                    WHEN f.character_id_1 = ? THEN f.character_id_2
-                    ELSE f.character_id_1
-                 END
-                 WHERE f.character_id_1 = ? OR f.character_id_2 = ?`,
-                [characterId, characterId, characterId, characterId]
-            ) as any;
+            // Get all friendships for this character
+            const friendships = await this.prisma.friendship.findMany({
+                where: {
+                    gameId: this.gameId,
+                    OR: [
+                        { characterId1: characterId },
+                        { characterId2: characterId }
+                    ]
+                }
+            });
 
             const online: Friend[] = [];
             const offline: Friend[] = [];
 
-            for (const row of rows) {
-                const isOnline = await this.isOnline(row.friend_character_id);
+            for (const friendship of friendships) {
+                // Get the friend's ID (the one that isn't characterId)
+                const friendId = friendship.characterId1 === characterId
+                    ? friendship.characterId2
+                    : friendship.characterId1;
+
+                const isOnline = await this.isOnline(friendId);
+                const characterName = await this.resolveCharacterName(friendId);
+
                 const friend: Friend = {
-                    characterId: row.friend_character_id,
-                    characterName: row.character_name,
+                    characterId: friendId,
+                    characterName,
                     isOnline,
-                    friendSince: row.friend_since
+                    friendSince: friendship.createdAt
                 };
 
                 if (isOnline) {
@@ -259,124 +321,146 @@ export class FriendManager {
 
             return { online, offline };
         } catch (error) {
-            this.context.logger.error(`Error getting friends: ${error}`);
+            this.logger.error(`Error getting friends: ${error}`);
             return { online: [], offline: [] };
         }
     }
 
-    async getFriendRequests(characterId: number): Promise<FriendRequest[]> {
+    async getFriendRequests(characterId: string): Promise<FriendRequest[]> {
         try {
-            const [rows] = await this.context.db.query(
-                `SELECT r.id, r.from_character_id, r.to_character_id, r.status, r.created_at, c.name as from_character_name
-                 FROM ${this.requestsTable} r
-                 JOIN characters c ON c.id = r.from_character_id
-                 WHERE r.to_character_id = ? AND r.status = 'pending'
-                 ORDER BY r.created_at DESC`,
-                [characterId]
-            ) as any;
+            const requests = await this.prisma.friendRequest.findMany({
+                where: {
+                    gameId: this.gameId,
+                    toCharacterId: characterId,
+                    status: 'pending'
+                },
+                orderBy: { createdAt: 'desc' }
+            });
 
-            return rows.map((row: any) => ({
-                requestId: row.id,
-                fromCharacterId: row.from_character_id,
-                fromCharacterName: row.from_character_name,
-                toCharacterId: row.to_character_id,
-                status: row.status,
-                createdAt: row.created_at
-            }));
+            const result: FriendRequest[] = [];
+
+            for (const request of requests) {
+                const fromCharacterName = await this.resolveCharacterName(request.fromCharacterId);
+
+                result.push({
+                    requestId: request.id,
+                    fromCharacterId: request.fromCharacterId,
+                    fromCharacterName,
+                    toCharacterId: request.toCharacterId,
+                    status: request.status as 'pending' | 'accepted' | 'rejected',
+                    createdAt: request.createdAt
+                });
+            }
+
+            return result;
         } catch (error) {
-            this.context.logger.error(`Error getting friend requests: ${error}`);
+            this.logger.error(`Error getting friend requests: ${error}`);
             return [];
         }
     }
 
-    async blockUser(characterId: number, targetCharacterId: number): Promise<boolean> {
+    async blockUser(characterId: string, targetCharacterId: string): Promise<boolean> {
         try {
             // Remove friendship if exists
             await this.removeFriend(characterId, targetCharacterId);
 
-            // Add to blocked list
-            await this.context.db.query(
-                `INSERT IGNORE INTO ${this.blockedTable} (character_id, blocked_character_id, created_at)
-                 VALUES (?, ?, NOW())`,
-                [characterId, targetCharacterId]
-            );
+            // Add to blocked list (upsert to handle duplicates)
+            await this.prisma.blockedUser.upsert({
+                where: {
+                    gameId_characterId_blockedCharacterId: {
+                        gameId: this.gameId,
+                        characterId: characterId,
+                        blockedCharacterId: targetCharacterId
+                    }
+                },
+                update: {},
+                create: {
+                    gameId: this.gameId,
+                    characterId: characterId,
+                    blockedCharacterId: targetCharacterId
+                }
+            });
 
             // Emit event
-            this.context.events.emit('friends:userBlocked', {
+            this.events.emit('friends:userBlocked', {
                 characterId,
-                blockedCharacterId: targetCharacterId
+                blockedCharacterId: targetCharacterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error blocking user: ${error}`);
+            this.logger.error(`Error blocking user: ${error}`);
             return false;
         }
     }
 
-    async unblockUser(characterId: number, blockedCharacterId: number): Promise<boolean> {
+    async unblockUser(characterId: string, blockedCharacterId: string): Promise<boolean> {
         try {
-            const result = await this.context.db.query(
-                `DELETE FROM ${this.blockedTable}
-                 WHERE character_id = ? AND blocked_character_id = ?`,
-                [characterId, blockedCharacterId]
-            ) as any;
+            const result = await this.prisma.blockedUser.deleteMany({
+                where: {
+                    gameId: this.gameId,
+                    characterId: characterId,
+                    blockedCharacterId: blockedCharacterId
+                }
+            });
 
-            if (result[0].affectedRows === 0) {
-                this.context.logger.warn(`User ${blockedCharacterId} not blocked by ${characterId}`);
+            if (result.count === 0) {
+                this.logger.warn(`User ${blockedCharacterId} not blocked by ${characterId}`);
                 return false;
             }
 
             // Emit event
-            this.context.events.emit('friends:userUnblocked', {
+            this.events.emit('friends:userUnblocked', {
                 characterId,
-                blockedCharacterId
+                blockedCharacterId,
+                gameId: this.gameId
             });
 
             return true;
         } catch (error) {
-            this.context.logger.error(`Error unblocking user: ${error}`);
+            this.logger.error(`Error unblocking user: ${error}`);
             return false;
         }
     }
 
-    async isBlocked(characterId: number, targetCharacterId: number): Promise<boolean> {
+    async isBlocked(characterId: string, targetCharacterId: string): Promise<boolean> {
         try {
-            const [rows] = await this.context.db.query(
-                `SELECT id FROM ${this.blockedTable}
-                 WHERE character_id = ? AND blocked_character_id = ?`,
-                [characterId, targetCharacterId]
-            ) as any;
+            const blocked = await this.prisma.blockedUser.findFirst({
+                where: {
+                    gameId: this.gameId,
+                    characterId: characterId,
+                    blockedCharacterId: targetCharacterId
+                }
+            });
 
-            return rows.length > 0;
+            return blocked !== null;
         } catch (error) {
-            this.context.logger.error(`Error checking if blocked: ${error}`);
+            this.logger.error(`Error checking if blocked: ${error}`);
             return false;
         }
     }
 
-    async isFriend(characterId: number, targetCharacterId: number): Promise<boolean> {
+    async isFriend(characterId: string, targetCharacterId: string): Promise<boolean> {
         try {
-            const [rows] = await this.context.db.query(
-                `SELECT id FROM ${this.friendsTable}
-                 WHERE (character_id_1 = ? AND character_id_2 = ?)
-                    OR (character_id_1 = ? AND character_id_2 = ?)`,
-                [
-                    Math.min(characterId, targetCharacterId),
-                    Math.max(characterId, targetCharacterId),
-                    Math.min(targetCharacterId, characterId),
-                    Math.max(targetCharacterId, characterId)
-                ]
-            ) as any;
+            const [id1, id2] = this.getOrderedIds(characterId, targetCharacterId);
 
-            return rows.length > 0;
+            const friendship = await this.prisma.friendship.findFirst({
+                where: {
+                    gameId: this.gameId,
+                    characterId1: id1,
+                    characterId2: id2
+                }
+            });
+
+            return friendship !== null;
         } catch (error) {
-            this.context.logger.error(`Error checking if friend: ${error}`);
+            this.logger.error(`Error checking if friend: ${error}`);
             return false;
         }
     }
 
-    async isOnline(characterId: number): Promise<boolean> {
+    async isOnline(characterId: string): Promise<boolean> {
         try {
             // Use the online checker callback if provided
             if (this.onlineChecker) {
@@ -385,7 +469,7 @@ export class FriendManager {
             // Default: character is offline if no checker is set
             return false;
         } catch (error) {
-            this.context.logger.error(`Error checking online status: ${error}`);
+            this.logger.error(`Error checking online status: ${error}`);
             return false;
         }
     }

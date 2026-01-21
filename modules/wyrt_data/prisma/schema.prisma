@@ -1112,6 +1112,55 @@ model Companion {
 }
 
 // =============================================================================
+// FRIEND SYSTEM
+// =============================================================================
+
+/// Friend relationships between characters
+model Friendship {
+  id              String   @id @default(uuid())
+  gameId          String
+
+  // Always store the lower ID in characterId1 for consistency
+  characterId1    String   // Lower ID
+  characterId2    String   // Higher ID
+
+  createdAt       DateTime @default(now())
+
+  @@unique([gameId, characterId1, characterId2])
+  @@index([gameId, characterId1])
+  @@index([gameId, characterId2])
+}
+
+/// Friend requests
+model FriendRequest {
+  id              String   @id @default(uuid())
+  gameId          String
+
+  fromCharacterId String
+  toCharacterId   String
+
+  status          String   @default("pending")  // 'pending', 'accepted', 'rejected'
+  createdAt       DateTime @default(now())
+
+  @@index([gameId, toCharacterId, status])
+  @@index([gameId, fromCharacterId])
+}
+
+/// Blocked users
+model BlockedUser {
+  id                  String   @id @default(uuid())
+  gameId              String
+
+  characterId         String   // The character who blocked
+  blockedCharacterId  String   // The character who is blocked
+
+  createdAt           DateTime @default(now())
+
+  @@unique([gameId, characterId, blockedCharacterId])
+  @@index([gameId, characterId])
+}
+
+// =============================================================================
 // PARTY SYSTEM
 // =============================================================================
 
