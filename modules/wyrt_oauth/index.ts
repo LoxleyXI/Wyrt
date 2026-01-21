@@ -9,33 +9,28 @@
  * - Steam OpenID integration (planned)
  * - Automatic account linking
  * - JWT token generation
- * - Provider configuration via server.json or env vars
+ * - Game module provides OAuth credentials (not engine-level)
  * - HTTP route registration (/oauth/:provider)
  * - Callback handling and token exchange
  *
  * @usage
  * ```typescript
- * // Configure in server.json:
- * // {
- * //   "oauth": {
- * //     "jwtSecret": "your-secret",
- * //     "providers": {
- * //       "discord": {
- * //         "enabled": true,
- * //         "clientId": "...",
- * //         "clientSecret": "...",
- * //         "callbackUrl": "https://yourgame.com/oauth/discord/callback"
- * //       }
- * //     }
- * //   }
- * // }
+ * // Game modules configure OAuth by calling configureOAuth():
+ * const oauthModule = context.getModule('wyrt_oauth');
+ * oauthModule.configureOAuth({
+ *     jwtSecret: process.env.OAUTH_JWT_SECRET,
+ *     discord: {
+ *         clientId: process.env.DISCORD_CLIENT_ID,
+ *         clientSecret: process.env.DISCORD_CLIENT_SECRET,
+ *         callbackUrl: process.env.DISCORD_CALLBACK_URL
+ *     }
+ * });
  *
  * // OAuth routes are auto-registered:
  * // GET /oauth/discord - Redirects to Discord login
  * // GET /oauth/discord/callback - Handles callback
  *
  * // Access OAuth manager for custom integration
- * const oauthModule = context.getModule('wyrt_oauth');
  * const oauthManager = oauthModule.getOAuthManager();
  * ```
  *
@@ -83,6 +78,19 @@ interface OAuthConfig {
     };
 }
 
+/**
+ * OAuth configuration provided by game modules
+ */
+export interface GameOAuthConfig {
+    jwtSecret?: string;
+    discord?: {
+        clientId: string;
+        clientSecret: string;
+        callbackUrl: string;
+    };
+    // Future providers: google, steam, etc.
+}
+
 export default class WyrtOAuthModule implements IModule {
     name = 'wyrt_oauth';
     version = '1.0.0';
@@ -92,20 +100,63 @@ export default class WyrtOAuthModule implements IModule {
     private context!: ModuleContext;
     private oauthManager!: OAuthManager;
     private config!: OAuthConfig;
+    private configured: boolean = false;
 
     async initialize(context: ModuleContext): Promise<void> {
         this.context = context;
 
-        // Load OAuth configuration
-        this.config = this.loadConfig();
+        // Initialize with default config (no providers enabled)
+        // Game modules will call configureOAuth() to set up their credentials
+        this.config = {
+            jwtSecret: process.env.OAUTH_JWT_SECRET || 'wyrt-oauth-secret-change-in-production',
+            providers: {}
+        };
 
         // Create OAuth manager
         this.oauthManager = new OAuthManager(this.config.jwtSecret);
 
-        // Register enabled providers
-        this.registerProviders();
+        console.log(`[${this.name}] Initialized - waiting for game module to configure OAuth`);
+    }
 
-        console.log(`[${this.name}] Initialized OAuth module`);
+    /**
+     * Configure OAuth credentials from a game module.
+     * Game modules should call this during their initialize() phase.
+     */
+    configureOAuth(config: GameOAuthConfig): void {
+        if (config.jwtSecret) {
+            this.config.jwtSecret = config.jwtSecret;
+            // Update OAuth manager with new secret
+            this.oauthManager = new OAuthManager(this.config.jwtSecret);
+        }
+
+        // Configure Discord provider
+        if (config.discord?.clientId && config.discord?.clientSecret) {
+            this.config.providers.discord = {
+                enabled: true,
+                clientId: config.discord.clientId,
+                clientSecret: config.discord.clientSecret,
+                callbackUrl: config.discord.callbackUrl || 'http://localhost:4040/oauth/discord/callback'
+            };
+
+            // Register the provider
+            const discordProvider = new DiscordProvider({
+                clientId: this.config.providers.discord.clientId,
+                clientSecret: this.config.providers.discord.clientSecret,
+                callbackUrl: this.config.providers.discord.callbackUrl,
+            });
+            this.oauthManager.registerProvider(discordProvider);
+            console.log(`[${this.name}] Discord OAuth configured`);
+        }
+
+        this.configured = true;
+        console.log(`[${this.name}] OAuth configured by game module`);
+    }
+
+    /**
+     * Check if OAuth has been configured by a game module
+     */
+    isConfigured(): boolean {
+        return this.configured;
     }
 
     async activate(): Promise<void> {
@@ -127,53 +178,6 @@ export default class WyrtOAuthModule implements IModule {
     async deactivate(): Promise<void> {
         // Cleanup if needed
         console.log(`[${this.name}] Deactivated`);
-    }
-
-    /**
-     * Load OAuth configuration from server.json or environment variables
-     */
-    private loadConfig(): OAuthConfig {
-        // Try to load from server.json first
-        const serverConfig = (globalThis as any).config?.oauth;
-
-        // Fallback to environment variables
-        const jwtSecret = serverConfig?.jwtSecret || process.env.OAUTH_JWT_SECRET || 'wyrt-oauth-secret-change-in-production';
-
-        const config: OAuthConfig = {
-            jwtSecret,
-            providers: {}
-        };
-
-        // Discord provider
-        if (serverConfig?.providers?.discord?.enabled) {
-            config.providers.discord = serverConfig.providers.discord;
-        } else if (process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET) {
-            config.providers.discord = {
-                enabled: true,
-                clientId: process.env.DISCORD_CLIENT_ID,
-                clientSecret: process.env.DISCORD_CLIENT_SECRET,
-                callbackUrl: process.env.DISCORD_CALLBACK_URL || 'http://localhost:4040/oauth/discord/callback'
-            };
-        }
-
-        return config;
-    }
-
-    /**
-     * Register OAuth providers based on configuration
-     */
-    private registerProviders(): void {
-        // Discord
-        if (this.config.providers.discord?.enabled) {
-            const discordProvider = new DiscordProvider({
-                clientId: this.config.providers.discord.clientId,
-                clientSecret: this.config.providers.discord.clientSecret,
-                callbackUrl: this.config.providers.discord.callbackUrl,
-            });
-            this.oauthManager.registerProvider(discordProvider);
-        }
-
-        // Future providers: Google, Steam, etc.
     }
 
     /**
