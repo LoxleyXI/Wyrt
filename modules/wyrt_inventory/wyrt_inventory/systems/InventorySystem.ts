@@ -25,6 +25,8 @@ export interface InventoryAPI {
   hasItem(characterId: string, itemSlug: string, quantity?: number): Promise<boolean>;
   hasSpace(characterId: string, requiredSlots?: number): Promise<boolean>;
   getItemCount(characterId: string): Promise<number>;
+  clearInventory(characterId: string): Promise<void>;
+  clearAll(): Promise<void>;
 }
 
 export class InventorySystem implements InventoryAPI {
@@ -59,6 +61,8 @@ export class InventorySystem implements InventoryAPI {
       hasItem: this.hasItem.bind(this),
       hasSpace: this.hasSpace.bind(this),
       getItemCount: this.getItemCount.bind(this),
+      clearInventory: this.clearInventory.bind(this),
+      clearAll: this.clearAll.bind(this),
     };
   }
 
@@ -262,6 +266,36 @@ export class InventorySystem implements InventoryAPI {
     } catch (error) {
       this.context.logger.error(`Error counting inventory: ${error}`);
       return 0;
+    }
+  }
+
+  /**
+   * Clear all items from a character's inventory.
+   */
+  async clearInventory(characterId: string): Promise<void> {
+    try {
+      await this.db.inventoryItem.deleteMany({
+        where: { characterId },
+      });
+
+      this.context.events.emit('inventory:cleared', { characterId });
+      this.context.logger.info(`Cleared inventory for character ${characterId}`);
+    } catch (error) {
+      this.context.logger.error(`Error clearing inventory: ${error}`);
+    }
+  }
+
+  /**
+   * Clear all inventories (admin/debug operation).
+   */
+  async clearAll(): Promise<void> {
+    try {
+      const result = await this.db.inventoryItem.deleteMany({});
+
+      this.context.events.emit('inventory:clearedAll', { count: result.count });
+      this.context.logger.info(`Cleared all inventories (${result.count} items deleted)`);
+    } catch (error) {
+      this.context.logger.error(`Error clearing all inventories: ${error}`);
     }
   }
 }
