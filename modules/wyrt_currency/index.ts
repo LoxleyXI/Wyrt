@@ -62,19 +62,20 @@ export default class CurrencyModule implements IModule {
 
   async initialize(context: ModuleContext): Promise<void> {
     this.context = context;
+    // Note: wyrt_data is retrieved in activate() to handle load order
+    console.log(`[${this.name}] Initialized`);
+  }
 
-    // Get wyrt_data module for database access
+  async activate(context: ModuleContext): Promise<void> {
+    // Get wyrt_data module for database access (done in activate to handle load order)
     this.dataModule = context.getModule?.('wyrt_data') as DataModule;
     if (!this.dataModule) {
       throw new Error('[wyrt_currency] wyrt_data module is required');
     }
 
-    console.log(`[${this.name}] Initialized with wyrt_data backend`);
-  }
-
-  async activate(context: ModuleContext): Promise<void> {
     context.logger.debug(colors.green('+module ') + 'wyrt_currency');
     context.events.emit('currencyModuleActivated');
+    console.log(`[${this.name}] Activated with wyrt_data backend`);
   }
 
   async deactivate(context: ModuleContext): Promise<void> {

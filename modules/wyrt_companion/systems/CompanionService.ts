@@ -3,7 +3,14 @@
  * Handles AI interactions for companions using Claude API
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+// Optional Anthropic SDK - loaded dynamically to avoid hard dependency
+let Anthropic: any = null;
+try {
+  Anthropic = require('@anthropic-ai/sdk').default;
+} catch {
+  // SDK not installed - companion chat will be disabled
+}
+
 import { MemoryManager } from './MemoryManager';
 import {
   CompanionConfig,
@@ -28,7 +35,7 @@ export interface CompanionServiceConfig extends Partial<CompanionConfig> {
 }
 
 export class CompanionService {
-  private client: Anthropic | null = null;
+  private client: any = null;
   private memory: MemoryManager;
   private config: CompanionConfig;
   private tierConfig: Record<string, TierCompanionConfig>;
@@ -42,6 +49,11 @@ export class CompanionService {
     this.tierConfig = serviceConfig.tierConfig || DEFAULT_TIER_CONFIG;
     this.gameName = serviceConfig.gameName || 'Adventure Game';
     this.gameDescription = serviceConfig.gameDescription || 'a text-based adventure game';
+
+    if (!Anthropic) {
+      console.log('[wyrt_companion] Service disabled (@anthropic-ai/sdk not installed)');
+      return;
+    }
 
     const apiKey = serviceConfig.apiKey || process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
