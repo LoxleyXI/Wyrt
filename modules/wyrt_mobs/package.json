@@ -1,0 +1,16 @@
+{
+  "name": "wyrt_mobs",
+  "version": "1.0.0",
+  "description": "Mob spawning and management system",
+  "main": "index.ts",
+  "wyrt": {
+    "type": "module"
+  },
+  "keywords": [
+    "wyrt",
+    "module",
+    "mobs",
+    "spawning",
+    "combat"
+  ]
+}

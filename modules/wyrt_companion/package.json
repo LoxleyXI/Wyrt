@@ -1,0 +1,16 @@
+{
+  "name": "wyrt_companion",
+  "version": "1.0.0",
+  "description": "AI companion system with conversation, memory, and combat support",
+  "main": "index.ts",
+  "wyrt": {
+    "type": "module"
+  },
+  "keywords": [
+    "wyrt",
+    "module",
+    "companion",
+    "ai",
+    "npc"
+  ]
+}

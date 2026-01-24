@@ -1,0 +1,16 @@
+{
+  "name": "wyrt_currency",
+  "version": "1.0.0",
+  "description": "Currency and economy management system",
+  "main": "index.ts",
+  "wyrt": {
+    "type": "module"
+  },
+  "keywords": [
+    "wyrt",
+    "module",
+    "currency",
+    "economy",
+    "gold"
+  ]
+}
