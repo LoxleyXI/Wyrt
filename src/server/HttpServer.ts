@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import http from 'http';
 import { ModuleContext } from '../module/ModuleContext';
 import { AuthPayload } from './AuthManager';
 import colors from 'colors/safe';
@@ -9,6 +10,7 @@ export class HttpServer {
     private app: Express;
     private context: ModuleContext;
     private port: number;
+    private server: http.Server | null = null;
 
     constructor(context: ModuleContext, port: number = 3001) {
         this.context = context;
@@ -373,8 +375,22 @@ export class HttpServer {
     }
 
     public start(): void {
-        this.app.listen(this.port, () => {
+        this.server = this.app.listen(this.port, () => {
             this.context.logger.info(colors.cyan(`HTTP Server listening on port ${this.port}`));
+        });
+    }
+
+    public stop(): Promise<void> {
+        return new Promise((resolve) => {
+            if (this.server) {
+                this.server.close(() => {
+                    this.context.logger.info(colors.yellow(`HTTP Server stopped`));
+                    this.server = null;
+                    resolve();
+                });
+            } else {
+                resolve();
+            }
         });
     }
 }

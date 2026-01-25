@@ -141,6 +141,11 @@ moduleContext.getModule = (moduleName: string) => {
 // WebManager - initialized in startServer()
 let webManager: WebManager | null = null;
 
+// Server instances - stored for graceful shutdown
+let httpServer: HttpServer | null = null;
+let wsServer: WebSocketServer | null = null;
+let httpsServer: https.Server | null = null;
+
 //----------------------------------
 // Load modules and data
 //----------------------------------
@@ -279,7 +284,7 @@ function onConnection(wss: WebSocketServer) {
 async function startServer() {
     try {
         // Start HTTP server BEFORE loading modules (so modules can register routes)
-        const httpServer = new HttpServer(moduleContext, config.server.ports.web || 3001);
+        httpServer = new HttpServer(moduleContext, config.server.ports.web || 3001);
         (moduleContext as any).httpServer = httpServer;
         httpServer.start();
 
@@ -296,20 +301,20 @@ async function startServer() {
 
         // Start WebSocket server
         if (config.server.options.dev) {
-            const wss = new WebSocketServer({ port: config.server.ports.socket });
-            onConnection(wss);
+            wsServer = new WebSocketServer({ port: config.server.ports.socket });
+            onConnection(wsServer);
             logger.info(`WebSocket Server (DEV) :${config.server.ports.socket}`);
         }
 
         else {
-            const serverHttps = https.createServer({
+            httpsServer = https.createServer({
                 cert: fs.readFileSync(`./config/${config.server.certificates.cert}`),
                 key: fs.readFileSync(`./config/${config.server.certificates.key}`),
             }).listen(config.server.ports.socket);
 
-            const wss = new WebSocketServer({ server: serverHttps });
+            wsServer = new WebSocketServer({ server: httpsServer });
 
-            onConnection(wss);
+            onConnection(wsServer);
             logger.info(`WebSocket Server (HTTPS) :${config.server.ports.socket}`);
         }
 
@@ -335,7 +340,28 @@ async function startServer() {
 async function serverClose() {
     logger.info("\n=== Server shutting down ===");
 
-    // Shutdown module web applications first
+    // Close WebSocket server first (stops accepting new connections)
+    if (wsServer) {
+        logger.info("Closing WebSocket server...");
+        wsServer.close();
+        wsServer = null;
+    }
+
+    // Close HTTPS server if in production mode
+    if (httpsServer) {
+        logger.info("Closing HTTPS server...");
+        httpsServer.close();
+        httpsServer = null;
+    }
+
+    // Stop HTTP server
+    if (httpServer) {
+        logger.info("Closing HTTP server...");
+        await httpServer.stop();
+        httpServer = null;
+    }
+
+    // Shutdown module web applications
     if (webManager) {
         webManager.shutdown();
     }
