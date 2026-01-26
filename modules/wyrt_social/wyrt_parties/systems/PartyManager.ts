@@ -608,9 +608,16 @@ export class PartyManager {
             const result: PartyMember[] = [];
 
             for (const member of members) {
-                // Check online status via event hook
-                const onlineResults = await this.events.emitAsync('parties:checkOnlineStatus', member.characterId);
-                const isOnline = onlineResults && onlineResults.some((r: any) => r === true);
+                // Check online status via event hook (if available)
+                let isOnline = false;
+                if (typeof this.events.emitAsync === 'function') {
+                    try {
+                        const onlineResults = await this.events.emitAsync('parties:checkOnlineStatus', member.characterId);
+                        isOnline = onlineResults && onlineResults.some((r: any) => r === true);
+                    } catch (e) {
+                        // Ignore errors from online status check
+                    }
+                }
 
                 const characterName = await this.resolveCharacterName(member.characterId);
 
