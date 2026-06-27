@@ -124,7 +124,7 @@ export class ModuleManager extends EventEmitter {
         let modulePaths: { name: string; path: string }[] = [];
 
         const topLevelDirs = fs.readdirSync(moduleDir, { withFileTypes: true })
-            .filter(dirent => dirent.isDirectory());
+            .filter(dirent => dirent.isDirectory() || dirent.isSymbolicLink());
 
         for (const dir of topLevelDirs) {
             const dirPath = path.join(moduleDir, dir.name);
@@ -235,7 +235,7 @@ export class ModuleManager extends EventEmitter {
 
         if (fs.existsSync(indexPath)) {
             try {
-                const moduleClass = await import(`file://${path.resolve(indexPath)}`);
+                const moduleClass = await import(`file://${path.resolve(indexPath)}?t=${Date.now()}`);
                 const ModuleClass = moduleClass.default || moduleClass[moduleName];
 
                 if (ModuleClass) {
@@ -341,7 +341,7 @@ export class ModuleManager extends EventEmitter {
 
         for (const file of requestFiles) {
             try {
-                const requestModule = await import(`file://${path.resolve(requestsPath, file)}`);
+                const requestModule = await import(`file://${path.resolve(requestsPath, file)}?t=${Date.now()}`);
                 const requestType = path.basename(file, path.extname(file));
 
                 if (requestModule.default) {
