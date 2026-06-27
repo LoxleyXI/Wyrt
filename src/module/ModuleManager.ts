@@ -260,7 +260,7 @@ export class ModuleManager extends EventEmitter {
             }
         }
 
-        this.logger.info(`Loaded module: ${moduleName} v${packageJson.version}`);
+        this.logger.debug(`Loaded module: ${moduleName} v${packageJson.version}`);
         this.emit('moduleLoaded', moduleName);
     }
 

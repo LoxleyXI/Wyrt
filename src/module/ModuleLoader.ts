@@ -72,8 +72,6 @@ export class ModuleLoader {
         // Show loaded files in one line
         if (str.length > 0) {
             console.log(`✓ ${dataType}: ${str.join(', ')}`);
-        } else if (errors.length === 0) {
-            console.log(`✓ ${dataType}: no files`);
         }
     }
 }
