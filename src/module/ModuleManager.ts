@@ -276,7 +276,7 @@ export class ModuleManager extends EventEmitter {
 
         for (const file of loaderFiles) {
             try {
-                const loaderModule = await import(`file://${path.resolve(loadersPath, file)}`);
+                const loaderModule = await import(`file://${path.resolve(loadersPath, file)}?t=${Date.now()}`);
                 const dataType = path.basename(file, path.extname(file));
 
                 if (loaderModule.default) {
@@ -307,7 +307,7 @@ export class ModuleManager extends EventEmitter {
 
         for (const file of commandFiles) {
             try {
-                const commandModule = await import(`file://${path.resolve(commandsPath, file)}`);
+                const commandModule = await import(`file://${path.resolve(commandsPath, file)}?t=${Date.now()}`);
                 const commandName = path.basename(file, path.extname(file));
 
                 if (commandModule.default) {
