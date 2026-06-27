@@ -35,10 +35,10 @@ export class ConsoleLogger implements Logger {
     }
 
     warn(message: string, ...args: any[]): void {
-        console.warn(`[WARN] ${message}`, ...args);
+        console.warn(`\x1b[33m[WARN]\x1b[0m ${message}`, ...args);
     }
 
     error(message: string, ...args: any[]): void {
-        console.error(`[ERROR] ${message}`, ...args);
+        console.error(`\x1b[31m[ERROR]\x1b[0m ${message}`, ...args);
     }
 }
